@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * June 13, 2018.
  *
  * This program is free software; you can redistribute it
@@ -32,7 +32,7 @@
 #define WHODATA_DIR_REMOVE_INTERVAL 2
 #define FILETIME_SECOND 10000000
 
-#ifdef WAZUH_UNIT_TESTING
+#ifdef HIDS_UNIT_TESTING
 #ifdef WIN32
 #include "unit_tests/wrappers/windows/aclapi_wrappers.h"
 #include "unit_tests/wrappers/windows/errhandlingapi_wrappers.h"
@@ -94,42 +94,18 @@ STATIC int restore_policies = 0;
 // Whodata function headers
 void restore_sacls();
 int set_privilege(HANDLE hdle, LPCTSTR privilege, int enable);
+int is_valid_sacl(PACL sacl, int is_file);
 unsigned long WINAPI whodata_callback(EVT_SUBSCRIBE_NOTIFY_ACTION action, __attribute__((unused)) void *_void, EVT_HANDLE event);
 int set_policies();
 void set_subscription_query(wchar_t *query);
 extern int wm_exec(char *command, char **output, int *exitcode, int secs, const char * add_path);
 int restore_audit_policies();
+int check_object_sacl(char *obj, int is_file);
 int whodata_hash_add(OSHash *table, char *id, void *data, char *tag);
 void notify_SACL_change(char *dir);
 int whodata_path_filter(char **path);
 void whodata_adapt_path(char **path);
 int whodata_check_arch();
-
-/**
- * @brief Checks the sacl status of an object.
- *
- * @param obj String with the object to be checked
- * @param is_file Boolean to check if it is file
-
- * @return Returns the sacl status of an object.
- * @retval 0: if the object has valid sacl.
- * @retval 1: if the object has invalid sacl.
- * @retval 2: if the object cannot be opened, set privileges or obtain security information.
- */
-int check_object_sacl(char *obj, int is_file);
-
-/**
- * @brief Checks if sacl is valid
- *
- * @param sacl PACL with the sacl to be checked
- * @param is_file Boolean to check if it is file
-
- * @return Returns the status of the sacl passed as a parameter
- * @retval 0: if sacl is valid
- * @retval 1: if sacl is invalid or NULL
- * @retval 2: if we cannot allocate the everyone_sid variable
- */
-int is_valid_sacl(PACL sacl, int is_file);
 
 // Whodata list operations
 char *get_whodata_path(const short unsigned int *win_path);
@@ -139,7 +115,7 @@ int get_volume_names();
 int get_drive_names(wchar_t *volume_name, char *device);
 void replace_device_path(char **path);
 
-int set_winsacl(const char *dir, directory_t *configuration) {
+int set_winsacl(const char *dir, int position) {
     DWORD result = 0;
     PACL old_sacl = NULL, new_sacl = NULL;
     PSECURITY_DESCRIPTOR security_descriptor = NULL;
@@ -151,8 +127,6 @@ int set_winsacl(const char *dir, directory_t *configuration) {
     unsigned long new_sacl_size;
     int retval = 1;
     int privilege_enabled = 0;
-
-    assert(configuration != NULL);
 
     mdebug2(FIM_SACL_CONFIGURE, dir);
 
@@ -176,33 +150,27 @@ int set_winsacl(const char *dir, directory_t *configuration) {
     ZeroMemory(&old_sacl_info, sizeof(ACL_SIZE_INFORMATION));
 
     // Check if the sacl has what the whodata scanner needs
-    int is_file = configuration->dirs_status.object_type == WD_STATUS_FILE_TYPE ? 1 : 0;
+    switch(is_valid_sacl(old_sacl, (syscheck.wdata.dirs_status[position].object_type == WD_STATUS_FILE_TYPE) ? 1 : 0)) {
+        case 0:
+            mdebug1(FIM_SACL_CHECK_CONFIGURE, dir);
+            syscheck.wdata.dirs_status[position].status |= WD_IGNORE_REST;
 
-    switch (is_valid_sacl(old_sacl, is_file)) {
-    case 0:
-        // It is not necessary to configure the SACL of the directory
-        retval = 0;
-        goto end;
-    case 1:
-        mdebug2(FIM_SACL_CHECK_CONFIGURE, dir);
-        configuration->dirs_status.status |= WD_IGNORE_REST;
-
-        // Empty SACL
-        if (!old_sacl) {
-            old_sacl_info.AclBytesInUse = sizeof(ACL);
-        } else {
             // Get SACL size
             if (!GetAclInformation(old_sacl, (LPVOID)&old_sacl_info, sizeof(ACL_SIZE_INFORMATION), AclSizeInformation)) {
                 merror(FIM_ERROR_SACL_GETSIZE, dir);
                 goto end;
             }
-        }
         break;
-    default:
-        // Can't access everyone_sid variable, nothing to do
-        break;
+        case 1:
+            // It is not necessary to configure the SACL of the directory
+            retval = 0;
+            goto end;
+        case 2:
+            // Empty SACL
+            syscheck.wdata.dirs_status[position].status |= WD_IGNORE_REST;
+            old_sacl_info.AclBytesInUse = sizeof(ACL);
+            break;
     }
-
     if (!ev_sid_size) {
         ev_sid_size = GetLengthSid(everyone_sid);
     }
@@ -300,29 +268,29 @@ int is_valid_sacl(PACL sacl, int is_file) {
     if (!everyone_sid) {
         if (!AllocateAndInitializeSid(&world_auth, 1, SECURITY_WORLD_RID, 0, 0, 0, 0, 0, 0, 0, &everyone_sid)) {
             merror(FIM_ERROR_WHODATA_GET_SID, GetLastError());
-            return 2;
+            return 0;
         }
     }
 
     if (!sacl) {
         mdebug2(FIM_SACL_NOT_FOUND);
-        return 1;
+        return 2;
     }
 
     for (i = 0; i < sacl->AceCount; i++) {
         if (!GetAce(sacl, i, (LPVOID*)&ace)) {
             merror(FIM_ERROR_WHODATA_GET_ACE, GetLastError());
-            return 1;
+            return 0;
         }
 
         if ((is_file || (ace->Header.AceFlags & inherit_flag)) && // Check folder and subfolders
             (ace->Header.AceFlags & SUCCESSFUL_ACCESS_ACE_FLAG) && // Check successful attemp
             ((ace->Mask & (criteria)) == criteria) && // Check write, delete, change_permissions and change_attributes permission
             (EqualSid((PSID)&ace->SidStart, everyone_sid))) { // Check everyone user
-            return 0;
+            return 1;
         }
     }
-    return 1;
+    return 0;
 }
 
 int set_privilege(HANDLE hdle, LPCTSTR privilege, int enable) {
@@ -405,6 +373,7 @@ void audit_restore() {
 
 /* Removes added security audit policies */
 void restore_sacls() {
+    int i;
     PACL sacl_it;
     HANDLE hdle = NULL;
     HANDLE c_process = NULL;
@@ -412,8 +381,6 @@ void restore_sacls() {
     DWORD result = 0;
     PSECURITY_DESCRIPTOR security_descriptor = NULL;
     int privilege_enabled = 0;
-    directory_t *dir_it;
-    OSListNode *node_it;
 
     c_process = GetCurrentProcess();
     if (!OpenProcessToken(c_process, TOKEN_ADJUST_PRIVILEGES, &hdle)) {
@@ -428,15 +395,10 @@ void restore_sacls() {
 
     privilege_enabled = 1;
 
-    w_rwlock_rdlock(&syscheck.directories_lock);
-    OSList_foreach(node_it, syscheck.directories) {
-        dir_it = node_it->data;
-        if (dir_it->dirs_status.status & WD_IGNORE_REST) {
+    for (i = 0; syscheck.dir[i] != NULL; i++) {
+        if (syscheck.wdata.dirs_status[i].status & WD_IGNORE_REST) {
             sacl_it = NULL;
-
-            result = GetNamedSecurityInfo(dir_it->path, SE_FILE_OBJECT, SACL_SECURITY_INFORMATION, NULL, NULL, NULL,
-                                          &sacl_it, &security_descriptor);
-            if (result != ERROR_SUCCESS) {
+            if (result = GetNamedSecurityInfo(syscheck.dir[i], SE_FILE_OBJECT, SACL_SECURITY_INFORMATION, NULL, NULL, NULL, &sacl_it, &security_descriptor), result != ERROR_SUCCESS) {
                 merror(FIM_ERROR_SACL_GETSECURITYINFO, result);
                 break;
             }
@@ -448,8 +410,7 @@ void restore_sacls() {
             }
 
             // Set the SACL
-            result = SetNamedSecurityInfo(dir_it->path, SE_FILE_OBJECT, SACL_SECURITY_INFORMATION, NULL, NULL, NULL, sacl_it);
-            if (result != ERROR_SUCCESS) {
+            if (result = SetNamedSecurityInfo((char *) syscheck.dir[i], SE_FILE_OBJECT, SACL_SECURITY_INFORMATION, NULL, NULL, NULL, sacl_it), result != ERROR_SUCCESS) {
                 merror(FIM_ERROR_SACL_SETSECURITYINFO, result);
                 break;
             }
@@ -461,10 +422,9 @@ void restore_sacls() {
             if (security_descriptor) {
                 LocalFree((HLOCAL)security_descriptor);
             }
-            mdebug2(FIM_SACL_RESTORED, dir_it->path);
+            mdebug1(FIM_SACL_RESTORED, syscheck.dir[i]);
         }
     }
-    w_rwlock_unlock(&syscheck.directories_lock);
 
 end:
     if (privilege_enabled) {
@@ -674,9 +634,9 @@ unsigned long WINAPI whodata_callback(EVT_SUBSCRIBE_NOTIFY_ACTION action, __attr
     char is_directory;
     whodata_directory *w_dir;
     unsigned long mask = 0;
-    directory_t *configuration;
 
     if (action == EvtSubscribeActionDeliver) {
+        fim_element *item;
         char hash_id[21];
 
         if (buffer = whodata_event_render(event), !buffer) {
@@ -708,37 +668,31 @@ unsigned long WINAPI whodata_callback(EVT_SUBSCRIBE_NOTIFY_ACTION action, __attr
                     free_whodata_event(w_evt);
                     goto clean;
                 }
-
-                w_rwlock_rdlock(&syscheck.directories_lock);
-                configuration = fim_configuration_directory(w_evt->path);
-                if (configuration == NULL && !(mask & (FILE_APPEND_DATA | FILE_WRITE_DATA))) {
+                if (w_evt->config_node = fim_configuration_directory(w_evt->path), w_evt->config_node < 0 &&
+                    !(mask & (FILE_APPEND_DATA | FILE_WRITE_DATA))) {
                     // Discard the file or directory if its monitoring has not been activated
                     mdebug2(FIM_WHODATA_NOT_ACTIVE, w_evt->path);
                     free_whodata_event(w_evt);
-                    w_rwlock_unlock(&syscheck.directories_lock);
                     goto clean;
                 }
 
-                if (configuration != NULL) {
+                if (w_evt->config_node >= 0) {
                     // Ignore the file if belongs to a non-whodata directory
-                    if (!(configuration->dirs_status.status & WD_CHECK_WHODATA) &&
+                    if (!(syscheck.wdata.dirs_status[w_evt->config_node].status & WD_CHECK_WHODATA) &&
                         !(mask & (FILE_APPEND_DATA | FILE_WRITE_DATA))) {
                         mdebug2(FIM_WHODATA_CANCELED, w_evt->path);
                         free_whodata_event(w_evt);
-                        w_rwlock_unlock(&syscheck.directories_lock);
                         goto clean;
                     }
 
                     // Ignore any and all events that are beyond the configured recursion level.
-                    int depth = fim_check_depth(w_evt->path, configuration);
-                    if (depth > configuration->recursion_level) {
-                        mdebug2(FIM_MAX_RECURSION_LEVEL, depth, configuration->recursion_level, w_evt->path);
+                    int depth = fim_check_depth(w_evt->path, w_evt->config_node);
+                    if (depth > syscheck.recursion_level[w_evt->config_node]) {
+                        mdebug2(FIM_MAX_RECURSION_LEVEL, depth, syscheck.recursion_level[w_evt->config_node], w_evt->path);
                         free_whodata_event(w_evt);
-                        w_rwlock_unlock(&syscheck.directories_lock);
                         goto clean;
                     }
                 }
-                w_rwlock_unlock(&syscheck.directories_lock);
 
                 int device_type;
 
@@ -772,7 +726,7 @@ unsigned long WINAPI whodata_callback(EVT_SUBSCRIBE_NOTIFY_ACTION action, __attr
                 if (result == 1) {
                     whodata_evt *w_evtdup;
 
-                    mdebug2(FIM_WHODATA_HANDLE_UPDATE, hash_id);
+                    mdebug1(FIM_WHODATA_HANDLE_UPDATE, hash_id);
                     if (w_evtdup = OSHash_Delete_ex(syscheck.wdata.fd, hash_id), !w_evtdup) {
                         merror(FIM_ERROR_WHODATA_HANDLER_REMOVE, hash_id);
                         free_whodata_event(w_evt);
@@ -820,14 +774,11 @@ unsigned long WINAPI whodata_callback(EVT_SUBSCRIBE_NOTIFY_ACTION action, __attr
                 }
 
                 // Check if is a valid directory
-                w_rwlock_rdlock(&syscheck.directories_lock);
-                if (fim_configuration_directory(w_evt->path) == NULL) {
+                if (w_evt->config_node < 0) {
                     mdebug2(FIM_WHODATA_DIRECTORY_DISCARDED, w_evt->path);
                     w_evt->scan_directory = 2;
-                    w_rwlock_unlock(&syscheck.directories_lock);
                     break;
                 }
-                w_rwlock_unlock(&syscheck.directories_lock);
 
                 w_rwlock_wrlock(&syscheck.wdata.directories->mutex);
 
@@ -863,10 +814,15 @@ unsigned long WINAPI whodata_callback(EVT_SUBSCRIBE_NOTIFY_ACTION action, __attr
 
             // Close fd
             case 4658:
+                os_calloc(1, sizeof(fim_element), item);
+                item->mode = FIM_WHODATA;
+
                 if (w_evt = OSHash_Delete_ex(syscheck.wdata.fd, hash_id), w_evt && w_evt->path) {
 
                     if (!w_evt->scan_directory) {
+
                         fim_whodata_event(w_evt);
+
                     } else if (w_evt->scan_directory == 1) {
                         // Directory scan has been aborted if scan_directory is 2
                         if (w_evt->mask & DELETE) {
@@ -886,7 +842,8 @@ unsigned long WINAPI whodata_callback(EVT_SUBSCRIBE_NOTIFY_ACTION action, __attr
                 }
 
                 free_whodata_event(w_evt);
-                break;
+                os_free(item);
+            break;
 
             default:
                 merror(FIM_ERROR_WHODATA_EVENTID);
@@ -919,14 +876,13 @@ int whodata_audit_start() {
 }
 
 long unsigned int WINAPI state_checker(__attribute__((unused)) void *_void) {
+    int i;
     int exists;
     whodata_dir_status *d_status;
     int interval;
     OSHashNode *w_dir_node;
     OSHashNode *w_dir_node_next;
     whodata_directory *w_dir;
-    directory_t *dir_it;
-    OSListNode *node_it;
     unsigned int w_dir_it;
     FILETIME current_time;
     ULARGE_INTEGER stale_time;
@@ -940,39 +896,38 @@ long unsigned int WINAPI state_checker(__attribute__((unused)) void *_void) {
     mdebug1(FIM_WHODATA_CHECKTHREAD, interval);
 
     while (FOREVER()) {
-        w_rwlock_wrlock(&syscheck.directories_lock);
-        OSList_foreach(node_it, syscheck.directories) {
-            dir_it = node_it->data;
+        for (i = 0; syscheck.dir[i]; i++) {
             exists = 0;
-            d_status = &dir_it->dirs_status;
+            d_status = &syscheck.wdata.dirs_status[i];
 
             if (!(d_status->status & WD_CHECK_WHODATA)) {
                 // It is not whodata
                 continue;
             }
 
-            switch (check_path_type(dir_it->path)) {
-            case 0:
-                // Unknown device type or does not exist
-                exists = 0;
+            switch (check_path_type(syscheck.dir[i])) {
+                case 0:
+                    // Unknown device type or does not exist
+                    exists = 0;
                 break;
-            case 1:
-                exists = 1;
-                d_status->object_type = WD_STATUS_FILE_TYPE;
+                case 1:
+                    exists = 1;
+                    d_status->object_type = WD_STATUS_FILE_TYPE;
                 break;
-            case 2:
-                exists = 1;
-                d_status->object_type = WD_STATUS_DIR_TYPE;
+                case 2:
+                    exists = 1;
+                    d_status->object_type = WD_STATUS_DIR_TYPE;
                 break;
+
             }
 
             if (exists) {
                 if (!(d_status->status & WD_STATUS_EXISTS)) {
-                    minfo(FIM_WHODATA_READDED, dir_it->path);
-                    if (set_winsacl(dir_it->path, dir_it)) {
-                        merror(FIM_ERROR_WHODATA_ADD_DIRECTORY, dir_it->path);
+                    minfo(FIM_WHODATA_READDED, syscheck.dir[i]);
+                    if (set_winsacl(syscheck.dir[i], i)) {
+                        merror(FIM_ERROR_WHODATA_ADD_DIRECTORY, syscheck.dir[i]);
                         d_status->status &= ~WD_CHECK_WHODATA;
-                        dir_it->options &= ~WHODATA_ACTIVE;
+                        syscheck.opts[i] &= ~WHODATA_ACTIVE;
                         d_status->status |= WD_CHECK_REALTIME;
                         syscheck.realtime_change = 1;
                         continue;
@@ -980,32 +935,31 @@ long unsigned int WINAPI state_checker(__attribute__((unused)) void *_void) {
                     d_status->status |= WD_STATUS_EXISTS;
                 } else {
                     // Check if the SACL is invalid
-                    if (check_object_sacl(dir_it->path, (d_status->object_type == WD_STATUS_FILE_TYPE)) == 1) {
-                        minfo(FIM_WHODATA_SACL_CHANGED, dir_it->path);
+                    if (check_object_sacl(syscheck.dir[i], (d_status->object_type == WD_STATUS_FILE_TYPE) ? 1 : 0)) {
+                        minfo(FIM_WHODATA_SACL_CHANGED, syscheck.dir[i]);
                         // Mark the directory to prevent its children from
                         // sending partial whodata alerts
                         d_status->status &= ~WD_CHECK_WHODATA;
                         // Removes CHECK_WHODATA from directory properties to prevent from
                         // being found in the whodata callback for Windows
-                        dir_it->options &= ~WHODATA_ACTIVE;
+                        syscheck.opts[i] &= ~WHODATA_ACTIVE;
                         // Mark it to prevent the restoration of its SACL
                         d_status->status &= ~WD_IGNORE_REST;
                         // Mark it to be monitored by Realtime
                         d_status->status |= WD_CHECK_REALTIME;
                         syscheck.realtime_change = 1;
-                        notify_SACL_change(dir_it->path);
+                        notify_SACL_change(syscheck.dir[i]);
                         continue;
                     }
                 }
             } else {
-                mdebug2(FIM_WHODATA_DELETE, dir_it->path);
+                mdebug1(FIM_WHODATA_DELETE, syscheck.dir[i]);
                 d_status->status &= ~WD_STATUS_EXISTS;
                 d_status->object_type = WD_STATUS_UNK_TYPE;
             }
             // Set the timestamp
             GetSystemTime(&d_status->last_check);
         }
-        w_rwlock_unlock(&syscheck.directories_lock);
 
         // Go through syscheck.wdata.directories and remove stale entries
         GetSystemTimeAsFileTime(&current_time);
@@ -1141,14 +1095,14 @@ void set_subscription_query(wchar_t *query) {
 int check_object_sacl(char *obj, int is_file) {
     HANDLE hdle = NULL;
     PACL sacl = NULL;
-    int retval = 2;
+    int retval = 1;
     PSECURITY_DESCRIPTOR security_descriptor = NULL;
     long int result;
     int privilege_enabled = 0;
 
     if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &hdle)) {
         merror(FIM_ERROR_SACL_OPENPROCESSTOKEN, GetLastError());
-        return retval;
+        return 1;
     }
 
     if (set_privilege(hdle, priv, TRUE)) {
@@ -1162,7 +1116,10 @@ int check_object_sacl(char *obj, int is_file) {
         goto end;
     }
 
-    retval = is_valid_sacl(sacl, is_file);
+    if (is_valid_sacl(sacl, is_file) == 1) {
+        // Is a valid SACL
+        retval = 0;
+    }
 
 end:
     if (privilege_enabled) {

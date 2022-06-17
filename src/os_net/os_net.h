@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All rights reserved.
  *
@@ -65,8 +65,8 @@ int OS_SendUnix(int socket, const char *msg, int size) __attribute__((nonnull));
 
 int OS_SendUDPbySize(int socket, int size, const char *msg) __attribute__((nonnull));
 
-/*
- * OS_GetHost retrieves the IP of a host
+/* OS_GetHost
+ * Calls gethostbyname
  */
 char *OS_GetHost(const char *host, unsigned int attempts);
 
@@ -158,53 +158,5 @@ ssize_t os_recv_waitall(int sock, void * buf, size_t size);
 
 // Wrapper for select()
 int wnet_select(int sock, int timeout);
-
-/**
- * @brief Resolve a given hostname, getting the associated ip
- * @param hostname Hostname to be resolved, if successfull, it will be modified with the format: 'hostname/x.x.x.x'
- * @param attempts Number of attempts of the call to the function OS_GetHost
- * */
-void resolve_hostname(char **hostname, int attempts);
-
-/**
- * @brief Extract the ip address from the result of the resolve_hostname function.
- * @param resolved_hostname String with the format: 'hostname/x.x.x.x'
- * @return String with the ip addres
- * */
-const char *get_ip_from_resolved_hostname(const char *resolved_hostname);
-
-/**
- * @brief Get the numeric form of an IPv4 address.
- * @param address IPv4 address in string form.
- * @param addr Buffer to store the numeric form of the IPv4.
- * @return 0 on success, -1 otherwise.
- * */
-int get_ipv4_numeric(const char *address, struct in_addr *addr);
-
-/**
- * @brief Get the numeric form of an IPv6 address.
- * @param address IPv6 address in string form.
- * @param addr6 Buffer to store the numeric form of the IPv6.
- * @return 0 on success, -1 otherwise.
- * */
-int get_ipv6_numeric(const char *address, struct in6_addr *addr6);
-
-/**
- * @brief Get the string form of an IPv4 address.
- * @param addr IPv4 address in numeric form.
- * @param address Buffer to store the string form of the IPv4.
- * @param address_size Size of the buffer.
- * @return 0 on success, -1 otherwise.
- * */
-int get_ipv4_string(struct in_addr addr, char *address, size_t address_size);
-
-/**
- * @brief Get the string form of an IPv6 address.
- * @param addr6 IPv6 address in numeric form.
- * @param address Buffer to store the string form of the IPv6.
- * @param address_size Size of the buffer.
- * @return 0 on success, -1 otherwise.
- * */
-int get_ipv6_string(struct in6_addr addr6, char *address, size_t address_size);
 
 #endif /* OS_NET_H */

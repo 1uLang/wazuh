@@ -1,6 +1,6 @@
 /*
  * Wazuh Module for Task management.
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * July 13, 2020.
  *
  * This program is free software; you can redistribute it
@@ -9,7 +9,7 @@
  * Foundation.
  */
 
-#ifdef WAZUH_UNIT_TESTING
+#ifdef HIDS_UNIT_TESTING
 // Remove static qualifier when unit testing
 #define STATIC
 #else

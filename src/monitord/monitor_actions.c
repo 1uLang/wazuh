@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All right reserved.
  *
@@ -108,7 +108,7 @@ void monitor_agents_alert(){
                     }
                 }
         } else {
-            mdebug1("Unable to retrieve agent's '%s' data from Wazuh DB", agent_hash_node->key);
+            mdebug1("Unable to retrieve agent's '%s' data from Hids DB", agent_hash_node->key);
             OSHash_Delete(agents_to_alert_hash, agent_hash_node->key);
         }
         cJSON_Delete(j_agent_info);
@@ -151,7 +151,7 @@ void monitor_agents_deletion(){
                     cJSON_Delete(j_agent_info);
                 }
             } else {
-                mdebug1("Unable to retrieve agent's '%d' data from Wazuh DB", agents_array[i]);
+                mdebug1("Unable to retrieve agent's '%d' data from Hids DB", agents_array[i]);
                 snprintf(str_agent_id, 12, "%d", agents_array[i]);
                 OSHash_Delete(agents_to_alert_hash, str_agent_id);
             }

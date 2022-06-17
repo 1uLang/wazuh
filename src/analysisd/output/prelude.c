@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2021, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All right reserved.
  *
@@ -75,7 +75,7 @@ add_idmef_object(idmef_message_t *msg, const char *object, const char *value)
 
     ret = idmef_path_set(path, msg, val);
     if (ret < 0) {
-        merror("Wazuh2Prelude: IDMEF: Cannot add object '%s': %s.",
+        merror("hids2Prelude: IDMEF: Cannot add object '%s': %s.",
                object, prelude_strerror(ret));
     }
 
@@ -118,7 +118,7 @@ setup_analyzer(idmef_analyzer_t *analyzer)
     return 0;
 
 err:
-    merror("Wazuh2Prelude: %s: IDMEF error: %s.",
+    merror("hids2Prelude: %s: IDMEF error: %s.",
            prelude_strsource(ret), prelude_strerror(ret));
 
     return -1;
@@ -303,7 +303,7 @@ void OS_PreludeLog(const Eventinfo *lf)
     /* Generate prelude alert */
     ret = idmef_message_new(&idmef);
     if ( ret < 0 ) {
-        merror("Wazuh2Prelude: Cannot create IDMEF message");
+        merror("hids2Prelude: Cannot create IDMEF message");
         return;
     }
 
@@ -378,7 +378,7 @@ void OS_PreludeLog(const Eventinfo *lf)
 
             snprintf(_prelude_data, 256, "Rule:%d", lf->generated_rule->sigid);
             add_idmef_object(idmef, "alert.classification.reference(-1).name", _prelude_data);
-            add_idmef_object(idmef, "alert.classification.reference(-1).meaning", "Wazuh Ruleset");
+            add_idmef_object(idmef, "alert.classification.reference(-1).meaning", "Hids Ruleset");
 
             snprintf(_prelude_data, 256, "https://github.com/wazuh/wazuh/tree/master/ruleset");
             add_idmef_object(idmef, "alert.classification.reference(-1).url", _prelude_data);
@@ -439,7 +439,7 @@ void OS_PreludeLog(const Eventinfo *lf)
                 snprintf(_prelude_data, 256, "Group:%s", copy_group);
                 add_idmef_object(idmef, "alert.classification.reference(-1).name", _prelude_data);
 
-                add_idmef_object(idmef, "alert.classification.reference(-1).meaning", "Wazuh Ruleset");
+                add_idmef_object(idmef, "alert.classification.reference(-1).meaning", "Hids Ruleset");
 
                 snprintf(_prelude_data, 256, "https://github.com/wazuh/wazuh/tree/master/ruleset");
                 add_idmef_object(idmef, "alert.classification.reference(-1).url", _prelude_data);
@@ -510,20 +510,20 @@ void OS_PreludeLog(const Eventinfo *lf)
                              idmef_analyzer_ref
                              (prelude_client_get_analyzer(prelude_client)),
                              IDMEF_LIST_PREPEND);
-    mdebug1("lf->fields[FIM_FILE].value = %s.", lf->fields[FIM_FILE].value);
-    if (lf->decoder_info->name != NULL && strncmp(lf->decoder_info->name, "syscheck_", 9) == 0) {
+    mdebug1("lf->filename = %s.", lf->filename);
+    if (lf->filename) {
         FileAccess_PreludeLog(idmef,
                               "original",
-                              lf->fields[FIM_FILE].value,
-                              lf->fields[FIM_MD5_BEFORE].value,
-                              lf->fields[FIM_SHA1_BEFORE].value,
-                              lf->fields[FIM_SHA256_BEFORE].value,
-                              lf->fields[FIM_UID_BEFORE].value,
-                              lf->fields[FIM_GID_BEFORE].value,
-                              lf->fields[FIM_PERM_BEFORE].value);
+                              lf->filename,
+                              lf->md5_before,
+                              lf->sha1_before,
+                              lf->sha256_before,
+                              lf->owner_before,
+                              lf->gowner_before,
+                              lf->perm_before);
         FileAccess_PreludeLog(idmef,
                               "current",
-                              lf->fields[FIM_FILE].value,
+                              lf->filename,
                               lf->fields[FIM_MD5].value,
                               lf->fields[FIM_SHA1].value,
                               lf->fields[FIM_SHA256].value,

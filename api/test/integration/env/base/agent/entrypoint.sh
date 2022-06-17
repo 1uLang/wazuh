@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 
-# Enable debug mode for the modulesd daemon
-echo 'wazuh_modules.debug=2' >> /var/ossec/etc/local_internal_options.conf
-
 # Apply test.keys
 cp /tmp/configuration_files/test.keys /var/ossec/etc/test.keys
 
@@ -17,7 +14,7 @@ for conf_file in /tmp/configuration_files/*.conf; do
 done
 
 sed -n "/$2 /p" /var/ossec/etc/test.keys > /var/ossec/etc/client.keys
-chown root:wazuh /var/ossec/etc/client.keys
+chown root:ossec /var/ossec/etc/client.keys
 rm /var/ossec/etc/test.keys
 
 # Agent configuration

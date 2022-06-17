@@ -1,4 +1,4 @@
-# Copyright (C) 2015, Wazuh Inc.
+# Copyright (C) 2015-2020, Wazuh Inc.
 # Created by Wazuh, Inc. <info@wazuh.com>.
 # This program is a free software; you can redistribute it and/or modify it under the terms of GPLv2
 
@@ -23,7 +23,7 @@ from wazuh.core.results import AffectedItemsWazuhResult, WazuhResult
 from wazuh.core.security import revoke_tokens
 from wazuh.rbac import preprocessor
 
-logger = logging.getLogger('wazuh-api')
+logger = logging.getLogger('hids-api')
 auth_re = re.compile(r'basic (.*)', re.IGNORECASE)
 
 
@@ -179,7 +179,7 @@ async def logout_user(request, pretty=False, wait_for_complete=False):
 
 
 async def get_users(request, user_ids: list = None, pretty=False, wait_for_complete=False,
-                    offset=0, limit=None, search=None, select=None, sort=None):
+                    offset=0, limit=None, search=None, sort=None):
     """Returns information from all system roles.
 
     Parameters
@@ -197,8 +197,6 @@ async def get_users(request, user_ids: list = None, pretty=False, wait_for_compl
         Maximum number of items to return
     search : str
         Looks for elements with the specified string
-    select : str
-        Select which fields to return (separated by comma)
     sort : str, optional
         Sorts the collection by a field or fields (separated by comma). Use +/- at the beginning to list in
         ascending or descending order
@@ -207,7 +205,7 @@ async def get_users(request, user_ids: list = None, pretty=False, wait_for_compl
     -------
     Users information
     """
-    f_kwargs = {'user_ids': user_ids, 'offset': offset, 'limit': limit, 'select': select,
+    f_kwargs = {'user_ids': user_ids, 'offset': offset, 'limit': limit,
                 'sort_by': parse_api_param(sort, 'sort')['fields'] if sort is not None else ['id'],
                 'sort_ascending': True if sort is None or parse_api_param(sort, 'sort')['order'] == 'asc' else False,
                 'search_text': parse_api_param(search, 'search')['value'] if search is not None else None,
@@ -361,7 +359,7 @@ async def delete_users(request, user_ids: list = None, pretty=False, wait_for_co
 
 
 async def get_roles(request, role_ids: list = None, pretty: bool = False, wait_for_complete: bool = False,
-                    offset: int = 0, limit: int = None, search: str = None, select: str = None, sort: str = None):
+                    offset: int = 0, limit: int = None, search: str = None, sort: str = None):
     """
 
     Parameters
@@ -379,8 +377,6 @@ async def get_roles(request, role_ids: list = None, pretty: bool = False, wait_f
         Maximum number of items to return
     search : str, optional
         Looks for elements with the specified string
-    select : str
-        Select which fields to return (separated by comma)
     sort : str, optional
         Sorts the collection by a field or fields (separated by comma). Use +/- at the beginning to list in
         ascending or descending order
@@ -389,7 +385,7 @@ async def get_roles(request, role_ids: list = None, pretty: bool = False, wait_f
     -------
     Roles information
     """
-    f_kwargs = {'role_ids': role_ids, 'offset': offset, 'limit': limit, 'select': select,
+    f_kwargs = {'role_ids': role_ids, 'offset': offset, 'limit': limit,
                 'sort_by': parse_api_param(sort, 'sort')['fields'] if sort is not None else ['id'],
                 'sort_ascending': True if sort is None or parse_api_param(sort, 'sort')['order'] == 'asc' else False,
                 'search_text': parse_api_param(search, 'search')['value'] if search is not None else None,
@@ -510,7 +506,7 @@ async def update_role(request, role_id: int, pretty: bool = False, wait_for_comp
 
 
 async def get_rules(request, rule_ids: list = None, pretty: bool = False, wait_for_complete: bool = False,
-                    offset: int = 0, limit: int = None, search: str = None, select: str = None, sort: str = None):
+                    offset: int = 0, limit: int = None, search: str = None, sort: str = None):
     """Get information about the security rules in the system.
 
     Parameters
@@ -528,8 +524,6 @@ async def get_rules(request, rule_ids: list = None, pretty: bool = False, wait_f
         Maximum number of items to return
     search : str, optional
         Looks for elements with the specified string
-    select : str
-        Select which fields to return (separated by comma)
     sort : str, optional
         Sorts the collection by a field or fields (separated by comma). Use +/- at the beginning to list in
         ascending or descending order
@@ -538,7 +532,7 @@ async def get_rules(request, rule_ids: list = None, pretty: bool = False, wait_f
     -------
     Rules information
     """
-    f_kwargs = {'rule_ids': rule_ids, 'offset': offset, 'limit': limit, 'select': select,
+    f_kwargs = {'rule_ids': rule_ids, 'offset': offset, 'limit': limit,
                 'sort_by': parse_api_param(sort, 'sort')['fields'] if sort is not None else ['id'],
                 'sort_ascending': True if sort is None or parse_api_param(sort, 'sort')['order'] == 'asc' else False,
                 'search_text': parse_api_param(search, 'search')['value'] if search is not None else None,
@@ -659,7 +653,7 @@ async def remove_rules(request, rule_ids: list = None, pretty: bool = False, wai
 
 
 async def get_policies(request, policy_ids: list = None, pretty: bool = False, wait_for_complete: bool = False,
-                       offset: int = 0, limit: int = None, search: str = None, select: str = None, sort: str = None):
+                       offset: int = 0, limit: int = None, search: str = None, sort: str = None):
     """Returns information from all system policies.
 
     Parameters
@@ -677,8 +671,6 @@ async def get_policies(request, policy_ids: list = None, pretty: bool = False, w
         Maximum number of items to return
     search : str, optional
         Looks for elements with the specified string
-    select : str
-        Select which fields to return (separated by comma)
     sort : str, optional
         Sorts the collection by a field or fields (separated by comma). Use +/- at the beginning to list in
         ascending or descending order
@@ -687,7 +679,7 @@ async def get_policies(request, policy_ids: list = None, pretty: bool = False, w
     -------
     Policies information
     """
-    f_kwargs = {'policy_ids': policy_ids, 'offset': offset, 'limit': limit, 'select': select,
+    f_kwargs = {'policy_ids': policy_ids, 'offset': offset, 'limit': limit,
                 'sort_by': parse_api_param(sort, 'sort')['fields'] if sort is not None else ['id'],
                 'sort_ascending': True if sort is None or parse_api_param(sort, 'sort')['order'] == 'asc' else False,
                 'search_text': parse_api_param(search, 'search')['value'] if search is not None else None,

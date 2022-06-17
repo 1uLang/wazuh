@@ -1,6 +1,6 @@
 /*
  * Wazuh Module for remote key requests
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * November 25, 2018.
  *
  * This program is free software; you can redistribute it
@@ -14,7 +14,6 @@
 #include "wmodules.h"
 #include <os_net/os_net.h>
 #include "shared.h"
-#include "config/authd-config.h"
 
 #define RELAUNCH_TIME 300
 
@@ -381,30 +380,13 @@ int wm_key_request_dispatch(char * buffer, const wm_krequest_t * data) {
             return -1;
         }
 
-        authd_force_options_t authd_force_options = {.enabled = 0};
-        if(data->force_insert) {
-            authd_force_options.enabled = true;
-        }
-
-        if(w_is_worker()) {
-            char response[OS_SIZE_2048] = {'\0'};
-            char *new_id = NULL;
-            char *new_key = NULL;
-            if (0 == w_request_agent_add_clustered(response, agent_name->valuestring, agent_address->valuestring, NULL, agent_key->valuestring, &new_id, &new_key, &authd_force_options, agent_id->valuestring)) {
-                mdebug1("Agent Key Polling response forwarded to the master node for agent '%s'", agent_id->valuestring);
-                os_free(new_id);
-                os_free(new_key);
-            }
+        int sock;
+        if (sock = auth_connect(), sock < 0) {
+            mwarn("Could not connect to authd socket. Is authd running?");
         } else {
-            int sock;
-            if (sock = auth_connect(), sock < 0) {
-                mwarn("Could not connect to authd socket. Is authd running?");
-            } else {
-                w_request_agent_add_local(sock, id, agent_name->valuestring, agent_address->valuestring, NULL, agent_key->valuestring, &authd_force_options, 1, agent_id->valuestring, 0);
-                close(sock);
-            }
+            w_request_agent_add_local(sock, id, agent_name->valuestring, agent_address->valuestring, NULL, agent_key->valuestring, data->force_insert, 1, agent_id->valuestring, 0);
+            close(sock);
         }
-
         cJSON_Delete(agent_infoJSON);
     }
 

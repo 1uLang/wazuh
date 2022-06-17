@@ -1,6 +1,6 @@
 /*
  * Wazuh DBSYNC
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * August 28, 2020.
  *
  * This program is free software; you can redistribute it
@@ -37,10 +37,10 @@ constexpr auto SQL_STMT_INFO
 
 class CallbackMock
 {
-    public:
-        CallbackMock() = default;
-        ~CallbackMock() = default;
-        MOCK_METHOD(void, callbackMock, (const std::string&), ());
+public:
+    CallbackMock() = default;
+    ~CallbackMock() = default;
+    MOCK_METHOD(void, callbackMock, (const std::string&), ());
 };
 
 static void callback(const void* data,
@@ -48,7 +48,7 @@ static void callback(const void* data,
                      void* ctx)
 {
     CallbackMock* wrapper { reinterpret_cast<CallbackMock*>(ctx)};
-    wrapper->callbackMock(reinterpret_cast<const char*>(data));
+    wrapper->callbackMock(reinterpret_cast<const char *>(data));
 }
 
 static void callbackRSyncWrapper(const void* payload, size_t size, void* userData)
@@ -239,25 +239,23 @@ TEST_F(RSyncTest, startSyncWithIntegrityClear)
 
     const auto checkExpected
     {
-        [&](const std::string & payload) -> ::testing::AssertionResult
+        [&](const std::string& payload) -> ::testing::AssertionResult
         {
             auto retVal { ::testing::AssertionFailure() };
             // Necessary to avoid checking against "ID" which is defined as: time(nullptr)
             auto firstSegment  { payload.find(expectedResult1) };
             auto secondSegment { payload.find(expectedResult2) };
-
-            if (std::string::npos != firstSegment && std::string::npos != secondSegment)
+            if(std::string::npos != firstSegment && std::string::npos != secondSegment)
             {
                 retVal = ::testing::AssertionSuccess();
             }
-
             return retVal;
         }
     };
 
     std::function<void(const std::string&)> callbackWrapper
     {
-        [&](const std::string & payload)
+        [&](const std::string& payload)
         {
             EXPECT_PRED1(checkExpected, payload);
         }
@@ -322,25 +320,23 @@ TEST_F(RSyncTest, startSyncIntegrityGlobal)
 
     const auto checkExpected
     {
-        [&](const std::string & payload) -> ::testing::AssertionResult
+        [&](const std::string& payload) -> ::testing::AssertionResult
         {
             auto retVal { ::testing::AssertionFailure() };
             // Necessary to avoid checking against "ID" which is defined as: time(nullptr)
             auto firstSegment  { payload.find(expectedResult1) };
             auto secondSegment { payload.find(expectedResult2) };
-
-            if (std::string::npos != firstSegment && std::string::npos != secondSegment)
+            if(std::string::npos != firstSegment && std::string::npos != secondSegment)
             {
                 retVal = ::testing::AssertionSuccess();
             }
-
             return retVal;
         }
     };
 
     std::function<void(const std::string&)> callbackWrapper
     {
-        [&](const std::string & payload)
+        [&](const std::string& payload)
         {
             EXPECT_PRED1(checkExpected, payload);
         }
@@ -660,7 +656,7 @@ TEST_F(RSyncTest, RegisterAndPushCPP)
     CallbackMock wrapper;
     SyncCallbackData callbackData
     {
-        [&wrapper](const std::string & data)
+        [&wrapper](const std::string& data)
         {
             wrapper.callbackMock(data);
         }
@@ -752,25 +748,23 @@ TEST_F(RSyncTest, startSyncWithIntegrityClearCPP)
 
     const auto checkExpected
     {
-        [&](const std::string & payload) -> ::testing::AssertionResult
+        [&](const std::string& payload) -> ::testing::AssertionResult
         {
             auto retVal { ::testing::AssertionFailure() };
             // Necessary to avoid checking against "ID" which is defined as: time(nullptr)
             auto firstSegment  { payload.find(expectedResult1) };
             auto secondSegment { payload.find(expectedResult2) };
-
-            if (std::string::npos != firstSegment && std::string::npos != secondSegment)
+            if(std::string::npos != firstSegment && std::string::npos != secondSegment)
             {
                 retVal = ::testing::AssertionSuccess();
             }
-
             return retVal;
         }
     };
 
     std::function<void(const std::string&)> callbackWrapper
     {
-        [&](const std::string & payload)
+        [&](const std::string& payload)
         {
             EXPECT_PRED1(checkExpected, payload);
         }
@@ -778,7 +772,7 @@ TEST_F(RSyncTest, startSyncWithIntegrityClearCPP)
 
     SyncCallbackData callbackData
     {
-        [&callbackWrapper](const std::string & payload)
+        [&callbackWrapper](const std::string& payload)
         {
             callbackWrapper(payload);
         }
@@ -831,7 +825,7 @@ TEST_F(RSyncTest, startSyncWithIntegrityClearCPPSelectByInode)
 
     std::function<void(const std::string&)> callbackWrapper
     {
-        [&](const std::string & payload)
+        [&](const std::string& payload)
         {
             EXPECT_FALSE(payload.empty());
         }
@@ -839,7 +833,7 @@ TEST_F(RSyncTest, startSyncWithIntegrityClearCPPSelectByInode)
 
     SyncCallbackData callbackData
     {
-        [&callbackWrapper](const std::string & payload)
+        [&callbackWrapper](const std::string& payload)
         {
             callbackWrapper(payload);
         }
@@ -957,7 +951,7 @@ TEST_F(RSyncTest, RegisterAndPushCPPByInode)
     CallbackMock wrapper;
     SyncCallbackData callbackData
     {
-        [&wrapper](const std::string & data)
+        [&wrapper](const std::string& data)
         {
             wrapper.callbackMock(data);
         }
@@ -1058,7 +1052,7 @@ TEST_F(RSyncTest, RegisterAndPushCPPByInodePartialNODataRange)
     CallbackMock wrapper;
     SyncCallbackData callbackData
     {
-        [&wrapper](const std::string & data)
+        [&wrapper](const std::string& data)
         {
             wrapper.callbackMock(data);
         }

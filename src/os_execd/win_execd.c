@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All right reserved.
  *
@@ -17,7 +17,7 @@
 #include "execd.h"
 #include "active-response/active_responses.h"
 
-#ifdef WAZUH_UNIT_TESTING
+#ifdef HIDS_UNIT_TESTING
     #include "unit_tests/wrappers/windows/libc/stdio_wrappers.h"
 #endif
 
@@ -25,7 +25,7 @@
 #undef ARGV0
 #endif
 
-#define ARGV0 "wazuh-execd"
+#define ARGV0 "hids-execd"
 extern w_queue_t * winexec_queue;
 
 /* Timeout list */

@@ -3,7 +3,7 @@
  * @brief Database synchronization decoder
  * @date 2019-09-03
  *
- * @copyright Copyright (C) 2015 Wazuh, Inc.
+ * @copyright Copyright (c) 2019 Wazuh, Inc.
  */
 
 /*
@@ -16,7 +16,7 @@
 #include "../eventinfo.h"
 #include "wazuhdb_op.h"
 
-#ifdef WAZUH_UNIT_TESTING
+#ifdef HIDS_UNIT_TESTING
 /* Remove static qualifier when unit testing */
 #define static
 

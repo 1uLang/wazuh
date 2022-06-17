@@ -11,6 +11,9 @@
 ---
 test_name: PUT /active-response
 
+marks:
+  - rbac_tests
+
 stages:
   - name: Try to run an Active Response command (generic)
     request:
@@ -153,20 +156,6 @@ stages:
       <<: *permission_denied
 
 ---
-test_name: GET /vulnerability/{agent_id}/last_scan
-
-stages:
-  - name: Try to get when the last full and partial scans for agent 001 ended
-    request:
-      verify: False
-      url: "{protocol:s}://{host:s}:{port:d}/vulnerability/001"
-      method: GET
-      headers:
-        Authorization: "Bearer {test_login_token}"
-    response:
-      <<: *permission_denied
-
----
 test_name: DELETE /agents/{agent_id}/group
 
 stages:
@@ -254,19 +243,6 @@ stages:
 test_name: PUT /agents/upgrade
 
 stages:
-  - name: Try to upgrade all agents (generic)
-    request:
-      verify: False
-      url: "{protocol:s}://{host:s}:{port:d}/agents/upgrade"
-      method: PUT
-      headers:
-        Authorization: "Bearer {test_login_token}"
-      params:
-        agents_list: all
-        version: "4.0.0"
-    response:
-      <<: *empty_response
-
   - name: Try to upgrade agent 008
     request:
       verify: False
@@ -283,19 +259,6 @@ stages:
 test_name: PUT /agents/upgrade_custom
 
 stages:
-  - name: Try to customly upgrade all agents (generic)
-    request:
-      verify: False
-      url: "{protocol:s}://{host:s}:{port:d}/agents/upgrade_custom"
-      method: PUT
-      headers:
-        Authorization: "Bearer {test_login_token}"
-      params:
-        agents_list: all
-        file_path: "{custom_wpk_path:s}"
-    response:
-      <<: *empty_response
-
   - name: Try to customly upgrade agent 008 using default installer
     request:
       verify: False
@@ -306,6 +269,7 @@ stages:
       params:
         agents_list: 008
         file_path: "{custom_wpk_path:s}"
+        wait_for_complete: 'true'
     response:
       <<: *permission_denied
 
@@ -458,32 +422,6 @@ stages:
         Authorization: "Bearer {test_login_token}"
     response:
       <<: *empty_response
-
----
-test_name: PUT /agents/reconnect
-
-stages:
-  - name: Try to reconnect all agents (generic)
-    request:
-      verify: False
-      url: "{protocol:s}://{host:s}:{port:d}/agents/reconnect"
-      method: PUT
-      headers:
-        Authorization: "Bearer {test_login_token}"
-    response:
-      <<: *empty_response
-
-  - name: Try to reconnect agent 001 (specific)
-    request:
-      verify: False
-      url: "{protocol:s}://{host:s}:{port:d}/agents/reconnect"
-      method: PUT
-      params:
-        agents_list: '001'
-      headers:
-        Authorization: "Bearer {test_login_token}"
-    response:
-      <<: *permission_denied
 
 ---
 test_name: PUT /agents/restart
@@ -1013,34 +951,6 @@ stages:
         Authorization: "Bearer {test_login_token}"
     response:
       <<: *empty_response
-
----
-test_name: DELETE /experimental/rootcheck
-
-stages:
-  - name: Try to delete rootcheck data (generic)
-    request:
-      verify: False
-      url: "{protocol:s}://{host:s}:{port:d}/experimental/rootcheck"
-      method: DELETE
-      params:
-        agents_list: all
-      headers:
-        Authorization: "Bearer {test_login_token}"
-    response:
-      <<: *empty_response
-
-  - name: Try to delete agent 001 rootcheck data (specific)
-    request:
-      verify: False
-      url: "{protocol:s}://{host:s}:{port:d}/experimental/rootcheck"
-      method: DELETE
-      params:
-        agents_list: '001'
-      headers:
-        Authorization: "Bearer {test_login_token}"
-    response:
-      <<: *permission_denied
 
 ---
 test_name: DELETE /experimental/syscheck
@@ -1832,103 +1742,13 @@ stages:
       <<: *permission_denied
 
 ---
-test_name: GET /mitre/metadata
+test_name: GET /mitre
 
 stages:
-  - name: Try to get MITRE metadata
+  - name: Try to get MITRE attacks
     request:
       verify: False
-      url: "{protocol:s}://{host:s}:{port:d}/mitre/metadata"
-      method: GET
-      headers:
-        Authorization: "Bearer {test_login_token}"
-    response:
-      <<: *permission_denied
-
----
-test_name: GET /mitre/mitigations
-
-stages:
-
-  - name: Try to get MITRE mitigations
-    request:
-      verify: False
-      url: "{protocol:s}://{host:s}:{port:d}/mitre/mitigations"
-      method: GET
-      headers:
-        Authorization: "Bearer {test_login_token}"
-    response:
-      <<: *permission_denied
-
----
-test_name: GET /mitre/references
-
-stages:
-
-  - name: Try to get MITRE references
-    request:
-      verify: False
-      url: "{protocol:s}://{host:s}:{port:d}/mitre/references"
-      method: GET
-      headers:
-        Authorization: "Bearer {test_login_token}"
-    response:
-      <<: *permission_denied
-
----
-test_name: GET /mitre/techniques
-
-stages:
-
-  - name: Try to get MITRE techniques
-    request:
-      verify: False
-      url: "{protocol:s}://{host:s}:{port:d}/mitre/techniques"
-      method: GET
-      headers:
-        Authorization: "Bearer {test_login_token}"
-    response:
-      <<: *permission_denied
-
----
-test_name: GET /mitre/tactics
-
-stages:
-
-  - name: Try to get MITRE tactics
-    request:
-      verify: False
-      url: "{protocol:s}://{host:s}:{port:d}/mitre/tactics"
-      method: GET
-      headers:
-        Authorization: "Bearer {test_login_token}"
-    response:
-      <<: *permission_denied
-
----
-test_name: GET /mitre/groups
-
-stages:
-
-  - name: Try to get MITRE groups
-    request:
-      verify: False
-      url: "{protocol:s}://{host:s}:{port:d}/mitre/groups"
-      method: GET
-      headers:
-        Authorization: "Bearer {test_login_token}"
-    response:
-      <<: *permission_denied
-
----
-test_name: GET /mitre/software
-
-stages:
-
-  - name: Try to get MITRE software
-    request:
-      verify: False
-      url: "{protocol:s}://{host:s}:{port:d}/mitre/software"
+      url: "{protocol:s}://{host:s}:{port:d}/mitre"
       method: GET
       headers:
         Authorization: "Bearer {test_login_token}"
@@ -1963,6 +1783,32 @@ stages:
         error: 0
 
 ---
+test_name: DELETE /rootcheck
+
+stages:
+  - name: Try to delete rootcheck data (generic)
+    request:
+      verify: False
+      url: "{protocol:s}://{host:s}:{port:d}/rootcheck"
+      method: DELETE
+      headers:
+        Authorization: "Bearer {test_login_token}"
+    response:
+      <<: *empty_response
+
+  - name: Try to delete agent 001 rootcheck data (specific)
+    request:
+      verify: False
+      url: "{protocol:s}://{host:s}:{port:d}/rootcheck"
+      method: DELETE
+      params:
+        agents_list: '001'
+      headers:
+        Authorization: "Bearer {test_login_token}"
+    response:
+      <<: *permission_denied
+
+---
 test_name: PUT /rootcheck
 
 stages:
@@ -1983,21 +1829,6 @@ stages:
       method: PUT
       params:
         agents_list: '001'
-      headers:
-        Authorization: "Bearer {test_login_token}"
-    response:
-      <<: *permission_denied
-
----
-test_name: DELETE /rootcheck/{agent_id}
-
-stages:
-
-  - name: Try to delete agent 001 rootcheck data
-    request:
-      verify: False
-      url: "{protocol:s}://{host:s}:{port:d}/rootcheck/001"
-      method: DELETE
       headers:
         Authorization: "Bearer {test_login_token}"
     response:
@@ -2216,22 +2047,6 @@ stages:
       json:
         username: newUser
         password: stringA1!
-      headers:
-        Authorization: "Bearer {test_login_token}"
-    response:
-      <<: *permission_denied
-
----
-test_name: PUT /security/users/{user_id}/run_as
-
-stages:
-  - name: Try to change the allow_run_as field of a user
-    request:
-      verify: False
-      url: "{protocol:s}://{host:s}:{port:d}/security/users/1/run_as"
-      method: PUT
-      params:
-        allow_run_as: false
       headers:
         Authorization: "Bearer {test_login_token}"
     response:
@@ -2581,6 +2396,9 @@ stages:
 ---
 test_name: DELETE /security/users/{user_id}/roles
 
+marks:
+  - xfail # Fails due to https://github.com/wazuh/wazuh/issues/7473
+
 stages:
   - name: Try to remove roles from user (generic)
     request:
@@ -2592,7 +2410,7 @@ stages:
       headers:
         Authorization: "Bearer {test_login_token}"
     response:
-      <<: *permission_denied
+      <<: *empty_response
 
   - name: Try to remove role from user (specific)
     request:
@@ -2641,6 +2459,9 @@ stages:
 ---
 test_name: DELETE /security/roles/{role_id}/policies
 
+marks:
+  - xfail # Fails due to https://github.com/wazuh/wazuh/issues/7473
+
 stages:
   - name: Try to remove policies from role (generic)
     request:
@@ -2652,7 +2473,7 @@ stages:
       headers:
         Authorization: "Bearer {test_login_token}"
     response:
-      <<: *permission_denied
+      <<: *empty_response
 
   - name: Try to remove policy from role (specific)
     request:
@@ -2668,6 +2489,9 @@ stages:
 
 ---
 test_name: DELETE /security/roles/{role_id}/rules
+
+marks:
+  - xfail # Fails due to https://github.com/wazuh/wazuh/issues/7473
 
 stages:
   - name: Try to remove rules from role (generic)

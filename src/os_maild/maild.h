@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All rights reserved.
  *
@@ -22,9 +22,9 @@
 /* Maximum body size */
 #define BODY_SIZE           OS_MAXSTR + OS_SIZE_1024
 
-#define SMS_SUBJECT         "Wazuh %d - %d - %s"
-#define MAIL_SUBJECT        "Wazuh notification - %s - Alert level %d"
-#define MAIL_SUBJECT_FULL   "Wazuh alert - %s - Level %d - %s"
+#define SMS_SUBJECT         "Hids %d - %d - %s"
+#define MAIL_SUBJECT        "Hids notification - %s - Alert level %d"
+#define MAIL_SUBJECT_FULL   "Hids alert - %s - Level %d - %s"
 
 /* Full subject without ossec in the name */
 #ifdef CLEANFULL

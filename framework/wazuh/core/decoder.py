@@ -1,4 +1,4 @@
-# Copyright (C) 2015, Wazuh Inc.
+# Copyright (C) 2015-2019, Wazuh Inc.
 # Created by Wazuh, Inc. <info@wazuh.com>.
 # This program is free software; you can redistribute it and/or modify it under the terms of GPLv2
 
@@ -12,7 +12,6 @@ from wazuh.core.utils import load_wazuh_xml, add_dynamic_detail
 REQUIRED_FIELDS = ['filename', 'position']
 SORT_FIELDS = ['filename', 'relative_dirname', 'name', 'position', 'status']
 DYNAMIC_OPTIONS = {'program_name', 'prematch', 'regex'}
-DECODER_FIELDS = ['filename', 'relative_dirname', 'name', 'position', 'status', 'details']
 
 
 class Status(Enum):
@@ -52,7 +51,7 @@ def load_decoders_from_file(decoder_file, decoder_path, decoder_status):
     try:
         decoders = list()
         position = 0
-        root = load_wazuh_xml(os.path.join(common.WAZUH_PATH, decoder_path, decoder_file))
+        root = load_wazuh_xml(os.path.join(common.wazuh_path, decoder_path, decoder_file))
 
         for xml_decoder in list(root):
             # New decoder
@@ -75,8 +74,8 @@ def load_decoders_from_file(decoder_file, decoder_path, decoder_status):
                         decoder['details'][tag] = value
                 decoders.append(decoder)
     except OSError:
-        raise WazuhError(1502, extra_message=os.path.join('WAZUH_HOME', decoder_path, decoder_file))
+        raise WazuhError(1502, extra_message=os.path.join('HIDS_HOME', decoder_path, decoder_file))
     except Exception:
-        raise WazuhInternalError(1501, extra_message=os.path.join('WAZUH_HOME', decoder_path, decoder_file))
+        raise WazuhInternalError(1501, extra_message=os.path.join('HIDS_HOME', decoder_path, decoder_file))
 
     return decoders

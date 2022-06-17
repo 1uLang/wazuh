@@ -1,6 +1,6 @@
 #!/bin/sh
-# Restarts Wazuh.
-# Copyright (C) 2015, Wazuh Inc.
+# Restarts Hids.
+# Copyright (C) 2015-2020, Hids Inc.
 
 
 PARAM_TYPE=$1
@@ -36,31 +36,21 @@ echo "`date` $0 $1 $2 $3 $4 $5" >> ${PWD}/logs/active-responses.log
 
 # Rules and decoders test
 if [ "$TYPE" = "manager" ]; then
-    if !(${PWD}/bin/wazuh-logtest-legacy -t > /dev/null 2>&1); then
+    if !(${PWD}/bin/hids-logtest-legacy -t > /dev/null 2>&1); then
         exit 1;
     fi
 fi
 
 if command -v systemctl > /dev/null 2>&1 && systemctl > /dev/null 2>&1; then
     touch ${PWD}/var/run/.restart
-    # Making sure to stop Wazuh even if the service is not active
-    systemctl is-active --quiet wazuh-$TYPE
-    if [ $? -ne 0 ]; then
-        ${PWD}/bin/wazuh-control stop
-    fi
-    systemctl restart wazuh-$TYPE
+    systemctl restart hids-$TYPE
     rm -f ${PWD}/var/run/.restart
 elif command -v service > /dev/null 2>&1; then
     touch ${PWD}/var/run/.restart
-    # Making sure to stop Wazuh even if the service is not active
-    service wazuh-$TYPE status > /dev/null 2>&1
-    if [ $? -ne 0 ]; then
-        ${PWD}/bin/wazuh-control stop
-    fi
-    service wazuh-$TYPE restart
+    service hids-$TYPE restart
     rm -f ${PWD}/var/run/.restart
 else
-    ${PWD}/bin/wazuh-control restart
+    ${PWD}/bin/hids-control restart
 fi
 
 exit $?;

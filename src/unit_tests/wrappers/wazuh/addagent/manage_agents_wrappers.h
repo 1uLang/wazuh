@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it
@@ -11,6 +11,7 @@
 #ifndef MANAGE_AGENTS_WRAPPERS_H
 #define MANAGE_AGENTS_WRAPPERS_H
 
+double __wrap_OS_AgentAntiquity(const char *name, const char *ip);
 void __wrap_OS_RemoveAgentGroup(const char *id);
 
 #endif

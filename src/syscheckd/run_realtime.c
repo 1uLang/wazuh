@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All right reserved.
  *
@@ -17,7 +17,7 @@
 #include "syscheck.h"
 #include "syscheck_op.h"
 
-#ifdef WAZUH_UNIT_TESTING
+#ifdef HIDS_UNIT_TESTING
 #ifdef WIN32
 #include "unit_tests/wrappers/windows/fileapi_wrappers.h"
 #include "unit_tests/wrappers/windows/handleapi_wrappers.h"
@@ -34,13 +34,12 @@
 #define REALTIME_EVENT_BUFFER   (2048 * (REALTIME_EVENT_SIZE + 16))
 
 int realtime_start() {
-    OSListNode *node_it;
     os_calloc(1, sizeof(rtfim), syscheck.realtime);
 
     syscheck.realtime->dirtb = OSHash_Create();
     if (syscheck.realtime->dirtb == NULL) {
         merror(MEM_ERROR, errno, strerror(errno));
-        goto error;
+        return (-1);
     }
 
     OSHash_SetFreeDataPointer(syscheck.realtime->dirtb, (void (*)(void *))free);
@@ -48,40 +47,30 @@ int realtime_start() {
     syscheck.realtime->fd = inotify_init();
     if (syscheck.realtime->fd < 0) {
         merror(FIM_ERROR_INOTIFY_INITIALIZE);
-        goto error;
+        return (-1);
     }
 
     return (0);
-
-error:
-    w_rwlock_wrlock(&syscheck.directories_lock);
-    OSList_foreach(node_it, syscheck.directories) {
-        directory_t *dir_it = node_it->data;
-
-        if (dir_it->options & REALTIME_ACTIVE) {
-            dir_it->options &= ~ REALTIME_ACTIVE;
-            dir_it->options |= SCHEDULED_ACTIVE;
-        }
-    }
-    w_rwlock_unlock(&syscheck.directories_lock);
-    return -1;
 }
 
 /* Add a directory to real time checking */
-int fim_add_inotify_watch(const char *dir, const directory_t *configuration) {
-    /* Check if it is ready to use */
-    w_mutex_lock(&syscheck.fim_realtime_mutex);
+int realtime_adddir(const char *dir, __attribute__((unused)) int whodata, int followsl) {
+    if (!syscheck.realtime) {
+        if (realtime_start() < 0 ) {
+            return (-1);
+        }
+    }
 
+    /* Check if it is ready to use */
     if (syscheck.realtime->fd < 0) {
-        w_mutex_unlock(&syscheck.fim_realtime_mutex);
         return (-1);
-    } else {
+    }
+    else {
         int wd = 0;
 
-        wd =
-        inotify_add_watch(syscheck.realtime->fd, dir,
-                          (0 == (configuration->options & CHECK_FOLLOW)) ? (REALTIME_MONITOR_FLAGS | IN_DONT_FOLLOW) :
-                                                                           REALTIME_MONITOR_FLAGS);
+        wd = inotify_add_watch(syscheck.realtime->fd,
+                                dir,
+                                (0 == followsl) ? (REALTIME_MONITOR_FLAGS|IN_DONT_FOLLOW) : REALTIME_MONITOR_FLAGS);
         if (wd < 0) {
             if (errno == 28) {
                 merror(FIM_ERROR_INOTIFY_ADD_MAX_REACHED, dir, wd, errno);
@@ -96,6 +85,8 @@ int fim_add_inotify_watch(const char *dir, const directory_t *configuration) {
             int retval;
             snprintf(wdchar, 33, "%d", wd);
             os_strdup(dir, data);
+
+            w_mutex_lock(&syscheck.fim_realtime_mutex);
             if (!OSHash_Get_ex(syscheck.realtime->dirtb, wdchar)) {
                 if (retval = OSHash_Add_ex(syscheck.realtime->dirtb, wdchar, data), retval == 0) {
                     os_free(data);
@@ -106,7 +97,7 @@ int fim_add_inotify_watch(const char *dir, const directory_t *configuration) {
                     os_free(data);
                 }
 
-                mdebug2(FIM_REALTIME_NEWDIRECTORY, dir);
+                mdebug1(FIM_REALTIME_NEWDIRECTORY, dir);
             }
             else {
                 if (retval = OSHash_Update_ex(syscheck.realtime->dirtb, wdchar, data), retval == 0) {
@@ -116,85 +107,11 @@ int fim_add_inotify_watch(const char *dir, const directory_t *configuration) {
                     return (-1);
                 }
             }
-        }
-    }
-    w_mutex_unlock(&syscheck.fim_realtime_mutex);
-
-    return 1;
-}
-
-/* Add a directory to real time checking */
-int realtime_adddir(const char *dir, directory_t *configuration) {
-    int mode = FIM_MODE(configuration->options);
-
-#ifdef ENABLE_AUDIT
-    if (mode == FIM_WHODATA){
-        add_whodata_directory(dir);
-        return 1;
-    }
-#endif
-
-    if (mode == FIM_REALTIME) {
-        return fim_add_inotify_watch(dir, configuration);
-    }
-
-    // Nothing to do here
-    return 1;
-}
-
-void fim_realtime_delete_watches(const directory_t *configuration) {
-    OSHashNode *hash_node;
-    char *data;
-    W_Vector * watch_to_delete;
-    unsigned int inode_it = 0;
-    int deletion_it = 0;
-    directory_t *watch_conf;
-
-    assert(configuration != NULL);
-
-    w_mutex_lock(&syscheck.fim_realtime_mutex);
-    if (syscheck.realtime == NULL || syscheck.realtime->dirtb == NULL) {
-        w_mutex_unlock(&syscheck.fim_realtime_mutex);
-        return;
-    }
-
-    watch_to_delete = W_Vector_init(1024);
-
-    if (watch_to_delete == NULL) {
-        w_mutex_unlock(&syscheck.fim_realtime_mutex);
-        return;
-    }
-
-    for (hash_node = OSHash_Begin(syscheck.realtime->dirtb, &inode_it); hash_node;
-         hash_node = OSHash_Next(syscheck.realtime->dirtb, &inode_it, hash_node)) {
-        data = hash_node->data;
-        if (data == NULL) {
-            continue;
-        }
-        watch_conf = fim_configuration_directory(data);
-
-        if (configuration == watch_conf) {
-            W_Vector_insert(watch_to_delete, hash_node->key);
-            deletion_it++;
+            w_mutex_unlock(&syscheck.fim_realtime_mutex);
         }
     }
 
-    deletion_it--;
-    while(deletion_it >= 0) {
-        const char * wd_str = W_Vector_get(watch_to_delete, deletion_it);
-        if (wd_str == NULL) {
-            continue;
-        }
-
-        inotify_rm_watch(syscheck.realtime->fd, atol(wd_str));
-        free(OSHash_Delete_ex(syscheck.realtime->dirtb, wd_str));
-        deletion_it--;
-    }
-
-    W_Vector_free(watch_to_delete);
-
-    w_mutex_unlock(&syscheck.fim_realtime_mutex);
-    return;
+    return (1);
 }
 
 /* Process events in the real time queue */
@@ -205,118 +122,114 @@ void realtime_process() {
 
     buf[REALTIME_EVENT_BUFFER] = '\0';
 
-    w_mutex_lock(&syscheck.fim_realtime_mutex);
     len = read(syscheck.realtime->fd, buf, REALTIME_EVENT_BUFFER);
-    w_mutex_unlock(&syscheck.fim_realtime_mutex);
 
     if (len < 0) {
         merror(FIM_ERROR_REALTIME_READ_BUFFER);
-        return;
     }
+    else if (len > 0) {
+        rb_tree * tree = rbtree_init();
 
-    if (len == 0) {
-        // Nothing to do
-        return;
-    }
+        for (size_t i = 0; i < (size_t) len; i += REALTIME_EVENT_SIZE + event->len) {
+            event = (struct inotify_event *) (void *) &buf[i];
 
-    rb_tree * tree = rbtree_init();
-    for (size_t i = 0; i < (size_t) len; i += REALTIME_EVENT_SIZE + event->len) {
-        char wdchar[33];
-        char final_name[MAX_LINE + 1];
-        char *entry;
-        final_name[MAX_LINE] = '\0';
-        event = (struct inotify_event *) (void *) &buf[i];
+            if (event->wd == -1 && event->mask == IN_Q_OVERFLOW) {
+                mwarn("Real-time inotify kernel queue is full. Some events may be lost. Next scheduled scan will recover lost data.");
+                syscheck.realtime->queue_overflow = true;
+                send_log_msg("ossec: Real-time inotify kernel queue is full. Some events may be lost. Next scheduled scan will recover lost data.");
+            }
+            else {
+                char wdchar[33];
+                char final_name[MAX_LINE + 1];
+                char *entry;
 
-        if (event->wd == -1 && event->mask == IN_Q_OVERFLOW) {
-            mwarn("Real-time inotify kernel queue is full. Some events may be lost. Next scheduled scan will recover lost data.");
-            fim_realtime_set_queue_overflow(true);
-            send_log_msg("ossec: Real-time inotify kernel queue is full. Some events may be lost. Next scheduled scan will recover lost data.");
-            continue;
-        }
+                final_name[MAX_LINE] = '\0';
 
-        snprintf(wdchar, 33, "%d", event->wd);
+                snprintf(wdchar, 33, "%d", event->wd);
 
-        w_mutex_lock(&syscheck.fim_realtime_mutex);
-        // The configured paths can end at / or not, we must check it.
-        entry = (char *) OSHash_Get_ex(syscheck.realtime->dirtb, wdchar);
+                w_mutex_lock(&syscheck.fim_realtime_mutex);
+                // The configured paths can end at / or not, we must check it.
+                entry = (char *)OSHash_Get_ex(syscheck.realtime->dirtb, wdchar);
 
-        if (entry == NULL) {
-            w_mutex_unlock(&syscheck.fim_realtime_mutex);
-            continue;
-        }
+                if (entry) {
+                    // Check file entries with realtime
+                    if (event->len == 0) {
+                        snprintf(final_name, MAX_LINE, "%s", entry);
+                    }
+                    else {
+                        // Check directories entries with realtime
+                        if (entry[strlen(entry) - 1] == PATH_SEP) {
+                            snprintf(final_name, MAX_LINE, "%s%s",
+                                    entry,
+                                    event->name);
+                        }
+                        else {
+                            snprintf(final_name, MAX_LINE, "%s/%s",
+                                    entry,
+                                    event->name);
+                        }
+                    }
 
-        // Check file entries with realtime
-        if (event->len == 0) {
-            snprintf(final_name, MAX_LINE, "%s", entry);
-        } else {
-            // Check directories entries with realtime
-            if (entry[strlen(entry) - 1] == PATH_SEP) {
-                snprintf(final_name, MAX_LINE, "%s%s", entry, event->name);
-            } else {
-                snprintf(final_name, MAX_LINE, "%s/%s", entry, event->name);
+                    if (rbtree_insert(tree, final_name, NULL) == NULL) {
+                        mdebug2("Duplicate event in real-time buffer: %s", final_name);
+                    }
+
+                    switch(event->mask) {
+                    case IN_MOVE_SELF:
+                        delete_subdirectories_watches(entry);
+                        // fall through
+                    case IN_DELETE_SELF:
+                        mdebug2(FIM_INOTIFY_WATCH_DELETED, entry);
+                        free(OSHash_Delete_ex(syscheck.realtime->dirtb, wdchar));
+
+                        break;
+                    }
+                }
+                w_mutex_unlock(&syscheck.fim_realtime_mutex);
             }
         }
 
-        if (rbtree_insert(tree, final_name, NULL) == NULL) {
-            mdebug2("Duplicate event in real-time buffer: %s", final_name);
+        char ** paths = rbtree_keys(tree);
+
+        for (int i = 0; paths[i] != NULL; i++) {
+            fim_realtime_event(paths[i]);
         }
 
-        switch(event->mask) {
-        case IN_MOVE_SELF:
-            delete_subdirectories_watches(entry);
-            // fall through
-        case IN_DELETE_SELF:
-            mdebug2(FIM_INOTIFY_WATCH_DELETED, entry);
-            free(OSHash_Delete_ex(syscheck.realtime->dirtb, wdchar));
-
-            break;
-        }
-        w_mutex_unlock(&syscheck.fim_realtime_mutex);
+        free_strarray(paths);
+        rbtree_destroy(tree);
     }
-
-    char ** paths = rbtree_keys(tree);
-
-    for (int i = 0; paths[i] != NULL; i++) {
-        w_rwlock_rdlock(&syscheck.directories_lock);
-        fim_realtime_event(paths[i]);
-        w_rwlock_unlock(&syscheck.directories_lock);
-    }
-
-    free_strarray(paths);
-    rbtree_destroy(tree);
 }
 
 int realtime_update_watch(const char *wd, const char *dir) {
-    int old_wd, new_wd;
+    int old_wd, new_wd, index;
     char wdchar[33];
     char *data;
     int retval;
-    const directory_t *configuration;
 
     if (syscheck.realtime->fd < 0) {
         return -1;
     }
 
-    configuration = fim_configuration_directory(dir);
+    index = fim_configuration_directory(dir);
 
-    if (configuration == NULL) {
+    if (index < 0) {
         inotify_rm_watch(syscheck.realtime->fd, atoi(wd));
         free(OSHash_Delete_ex(syscheck.realtime->dirtb, wd));
         return 0;
     }
 
     old_wd = atoi(wd);
-    new_wd =
-    inotify_add_watch(syscheck.realtime->fd, dir,
-                      (configuration->options & CHECK_FOLLOW) == 0 ? (REALTIME_MONITOR_FLAGS | IN_DONT_FOLLOW) :
-                                                                     REALTIME_MONITOR_FLAGS);
+
+    new_wd = inotify_add_watch(syscheck.realtime->fd, dir,
+                               (syscheck.opts[index] & CHECK_FOLLOW) == 0 ? (REALTIME_MONITOR_FLAGS | IN_DONT_FOLLOW) :
+                                                                            REALTIME_MONITOR_FLAGS);
 
     if (new_wd < 0) {
         if (errno == ENOSPC) {
             merror(FIM_ERROR_INOTIFY_ADD_MAX_REACHED, dir, new_wd, errno);
             return -1;
         } else if (errno == ENOENT) {
-            mdebug2("Removing watch on non existent directory '%s'", dir);
+            mdebug1("Removing watch on non existent directory '%s'", dir);
             inotify_rm_watch(syscheck.realtime->fd, old_wd);
             free(OSHash_Delete_ex(syscheck.realtime->dirtb, wd));
             return 0;
@@ -339,11 +252,10 @@ int realtime_update_watch(const char *wd, const char *dir) {
     if (!OSHash_Get_ex(syscheck.realtime->dirtb, wdchar)) {
         if (retval = OSHash_Add_ex(syscheck.realtime->dirtb, wdchar, data), retval == 0) {
             os_free(data);
-            merror(FIM_CRITICAL_ERROR_OUT_MEM);
-            return -1;
+            merror_exit(FIM_CRITICAL_ERROR_OUT_MEM);
         }
 
-        mdebug2(FIM_REALTIME_NEWDIRECTORY, data);
+        mdebug1(FIM_REALTIME_NEWDIRECTORY, data);
     } else if (retval = OSHash_Update_ex(syscheck.realtime->dirtb, wdchar, data), retval == 0) {
         merror("Unable to update 'dirtb'. Directory not found: '%s'", data);
         os_free(data);
@@ -407,10 +319,8 @@ void realtime_sanitize_watch_map() {
     struct timespec start;
     struct timespec end;
 
-    w_rwlock_rdlock(&syscheck.directories_lock);
-    w_mutex_lock(&syscheck.fim_realtime_mutex);
-
     gettime(&start);
+    w_mutex_lock(&syscheck.fim_realtime_mutex);
     hash_node = OSHash_Begin(syscheck.realtime->dirtb, &inode_it);
 
     while (hash_node) {
@@ -422,14 +332,21 @@ void realtime_sanitize_watch_map() {
         hash_node = OSHash_Next(syscheck.realtime->dirtb, &inode_it, hash_node);
     }
 
+    w_mutex_unlock(&syscheck.fim_realtime_mutex);
     gettime(&end);
     mdebug2("Time spent sanitizing wd hashmap: %.3f seconds", time_diff(&start, &end));
-
-    w_mutex_unlock(&syscheck.fim_realtime_mutex);
-    w_rwlock_unlock(&syscheck.directories_lock);
 }
 
 #elif defined(WIN32)
+
+typedef struct _win32rtfim {
+    HANDLE h;
+    OVERLAPPED overlap;
+
+    char *dir;
+    TCHAR buffer[65536];
+    unsigned int watch_status;
+} win32rtfim;
 
 void free_win32rtfim_data(win32rtfim *data);
 int realtime_win32read(win32rtfim *rtlocald);
@@ -464,23 +381,19 @@ void CALLBACK RTCallBack(DWORD dwerror, DWORD dwBytes, LPOVERLAPPED overlap)
     }
 
     /* Get hash to parse the data */
-    w_rwlock_rdlock(&syscheck.directories_lock);
-    w_mutex_lock(&syscheck.fim_realtime_mutex);
     snprintf(wdchar, 260, "%s", (char*)overlap->hEvent);
-    rtlocald = OSHash_Get_ex(syscheck.realtime->dirtb, wdchar);
+    rtlocald = OSHash_Get(syscheck.realtime->dirtb, wdchar);
     if (rtlocald == NULL) {
         merror(FIM_ERROR_REALTIME_WINDOWS_CALLBACK_EMPTY);
-        w_mutex_unlock(&syscheck.fim_realtime_mutex);
-        w_rwlock_unlock(&syscheck.directories_lock);
         return;
     }
 
     if(rtlocald->watch_status == FIM_RT_HANDLE_CLOSED) {
+        w_mutex_lock(&syscheck.fim_realtime_mutex);
         rtlocald = OSHash_Delete_ex(syscheck.realtime->dirtb, wdchar);
         free_win32rtfim_data(rtlocald);
-        mdebug2(FIM_REALTIME_CALLBACK, wdchar);
+        mdebug1(FIM_REALTIME_CALLBACK, wdchar);
         w_mutex_unlock(&syscheck.fim_realtime_mutex);
-        w_rwlock_unlock(&syscheck.directories_lock);
         return;
     }
 
@@ -510,8 +423,8 @@ void CALLBACK RTCallBack(DWORD dwerror, DWORD dwBytes, LPOVERLAPPED overlap)
             }
             str_lowercase(final_path);
 
-            directory_t *index = fim_configuration_directory(wdchar);
-            directory_t *file_index = fim_configuration_directory(final_path);
+            int index = fim_configuration_directory(wdchar);
+            int file_index = fim_configuration_directory(final_path);
 
             if (index == file_index) {
                 /* Check the change */
@@ -525,8 +438,6 @@ void CALLBACK RTCallBack(DWORD dwerror, DWORD dwBytes, LPOVERLAPPED overlap)
     }
 
     realtime_win32read(rtlocald);
-    w_mutex_unlock(&syscheck.fim_realtime_mutex);
-    w_rwlock_unlock(&syscheck.directories_lock);
     return;
 }
 
@@ -537,45 +448,17 @@ void free_win32rtfim_data(win32rtfim *data) {
     os_free(data);
 }
 
-static unsigned int _get_realtime_watches() {
-    if (syscheck.realtime != NULL) {
-        return OSHash_Get_Elem_ex(syscheck.realtime->dirtb);
-    }
-    return 0;
-}
-
-unsigned int get_realtime_watches() {
-    unsigned int n_elements = 0;
-
-    w_mutex_lock(&syscheck.fim_realtime_mutex);
-    n_elements = _get_realtime_watches();
-    w_mutex_unlock(&syscheck.fim_realtime_mutex);
-
-    return n_elements;
-}
-
 int realtime_start() {
     os_calloc(1, sizeof(rtfim), syscheck.realtime);
 
     syscheck.realtime->dirtb = OSHash_Create();
     if (syscheck.realtime->dirtb == NULL) {
-        OSListNode *node_it;
-
         merror(MEM_ERROR, errno, strerror(errno));
-
-        w_rwlock_wrlock(&syscheck.directories_lock);
-        OSList_foreach(node_it, syscheck.directories) {
-            directory_t *dir_it = (directory_t *)node_it->data;
-            if (dir_it->options & REALTIME_ACTIVE) {
-                dir_it->options &= ~ REALTIME_ACTIVE;
-                dir_it->options |= SCHEDULED_ACTIVE;
-            }
-        }
-        w_rwlock_unlock(&syscheck.directories_lock);
         return(-1);
     }
     OSHash_SetFreeDataPointer(syscheck.realtime->dirtb, (void (*)(void *))free_win32rtfim_data);
 
+    syscheck.realtime->fd = -1;
     syscheck.realtime->evt = CreateEvent(NULL, TRUE, FALSE, NULL);
 
     return (0);
@@ -598,13 +481,13 @@ int realtime_win32read(win32rtfim *rtlocald)
     return rc;
 }
 
-int realtime_adddir(const char *dir, directory_t *configuration) {
+// In Windows the whodata parameter contains the directory position + 1 to be able to reference it
+int realtime_adddir(const char *dir, int whodata, __attribute__((unused)) int followsl)
+{
     char wdchar[260 + 1];
     win32rtfim *rtlocald;
 
-    assert(configuration != NULL);
-
-    if (FIM_MODE(configuration->options) == FIM_WHODATA) {
+    if (whodata) {
 #ifdef WIN_WHODATA
 
         int type;
@@ -615,26 +498,26 @@ int realtime_adddir(const char *dir, directory_t *configuration) {
 
         // This parameter is used to indicate if the file is going to be monitored in Whodata mode,
         // regardless of it was checked in the initial configuration (WHODATA_ACTIVE in opts)
-        configuration->dirs_status.status |= WD_CHECK_WHODATA;
-        configuration->dirs_status.status &= ~WD_CHECK_REALTIME;
+        syscheck.wdata.dirs_status[whodata - 1].status |= WD_CHECK_WHODATA;
+        syscheck.wdata.dirs_status[whodata - 1].status &= ~WD_CHECK_REALTIME;
 
         // Check if the file or directory exists
         if (type = check_path_type(dir), type == 2) {
-            configuration->dirs_status.object_type = WD_STATUS_DIR_TYPE;
-            configuration->dirs_status.status |= WD_STATUS_EXISTS;
+            syscheck.wdata.dirs_status[whodata - 1].object_type = WD_STATUS_DIR_TYPE;
+            syscheck.wdata.dirs_status[whodata - 1].status |= WD_STATUS_EXISTS;
         } else if (type == 1) {
-            configuration->dirs_status.object_type = WD_STATUS_FILE_TYPE;
-            configuration->dirs_status.status |= WD_STATUS_EXISTS;
+            syscheck.wdata.dirs_status[whodata - 1].object_type = WD_STATUS_FILE_TYPE;
+            syscheck.wdata.dirs_status[whodata - 1].status |= WD_STATUS_EXISTS;
         } else {
-            mdebug2(FIM_WARN_REALTIME_OPENFAIL, dir);
+            mdebug1(FIM_WARN_REALTIME_OPENFAIL, dir);
 
-            configuration->dirs_status.object_type = WD_STATUS_UNK_TYPE;
-            configuration->dirs_status.status &= ~WD_STATUS_EXISTS;
+            syscheck.wdata.dirs_status[whodata - 1].object_type = WD_STATUS_UNK_TYPE;
+            syscheck.wdata.dirs_status[whodata - 1].status &= ~WD_STATUS_EXISTS;
             return 0;
         }
 
-        GetSystemTime(&configuration->dirs_status.last_check);
-        if (set_winsacl(dir, configuration)) {
+        GetSystemTime(&syscheck.wdata.dirs_status[whodata - 1].last_check);
+        if (set_winsacl(dir, whodata - 1)) {
             merror(FIM_ERROR_WHODATA_ADD_DIRECTORY, dir);
             return -2;
         }
@@ -642,7 +525,21 @@ int realtime_adddir(const char *dir, directory_t *configuration) {
         return 1;
 #endif
     }
+
+    if (!syscheck.realtime) {
+        if (realtime_start() < 0 ) {
+            return (-1);
+        }
+    }
+
     w_mutex_lock(&syscheck.fim_realtime_mutex);
+
+    /* Maximum limit for realtime on Windows */
+    if (syscheck.realtime->fd > syscheck.max_fd_win_rt) {
+        merror(FIM_ERROR_REALTIME_MAXNUM_WATCHES, dir);
+        w_mutex_unlock(&syscheck.fim_realtime_mutex);
+        return (0);
+    }
 
     /* Set key for hash */
     wdchar[260] = '\0';
@@ -650,67 +547,77 @@ int realtime_adddir(const char *dir, directory_t *configuration) {
 
     rtlocald = OSHash_Get_ex(syscheck.realtime->dirtb, wdchar);
     if(rtlocald != NULL) {
-        if (!w_directory_exists(rtlocald->dir)) {
-            if (rtlocald->watch_status == FIM_RT_HANDLE_CLOSED) {
-                mdebug2(FIM_REALTIME_CALLBACK, rtlocald->dir);
-                rtlocald = OSHash_Delete_ex(syscheck.realtime->dirtb, rtlocald->dir);
-                free_win32rtfim_data(rtlocald);
-            } else if (rtlocald->h != NULL && rtlocald->h != INVALID_HANDLE_VALUE) {
-                CloseHandle(rtlocald->h);
-                rtlocald->watch_status = FIM_RT_HANDLE_CLOSED;
-            }
+        fim_check_realtime_directory(rtlocald);
+    }
+    else {
+        os_calloc(1, sizeof(win32rtfim), rtlocald);
+
+        rtlocald->h = CreateFile(dir,
+                                FILE_LIST_DIRECTORY,
+                                FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                NULL,
+                                OPEN_EXISTING,
+                                FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED,
+                                NULL);
+
+        if (rtlocald->h == INVALID_HANDLE_VALUE || rtlocald->h == NULL) {
+            free(rtlocald);
+            rtlocald = NULL;
+            mdebug2(FIM_REALTIME_ADD, dir);
+            w_mutex_unlock(&syscheck.fim_realtime_mutex);
+            return (0);
+        }
+        syscheck.realtime->fd++;
+
+        /* Add final elements to the hash */
+        os_strdup(dir, rtlocald->dir);
+        os_strdup(dir, rtlocald->overlap.hEvent);
+        rtlocald->watch_status = FIM_RT_HANDLE_OPEN;
+
+        /* Add directory to be monitored */
+        if(realtime_win32read(rtlocald) == 0) {
+            mdebug1(FIM_REALTIME_DIRECTORYCHANGES, rtlocald->dir);
+            free_win32rtfim_data(rtlocald);
+            w_mutex_unlock(&syscheck.fim_realtime_mutex);
+            return 0;
         }
 
-        w_mutex_unlock(&syscheck.fim_realtime_mutex);
-        return 1;
+        if (!OSHash_Add_ex(syscheck.realtime->dirtb, wdchar, rtlocald)) {
+            merror_exit(FIM_CRITICAL_ERROR_OUT_MEM);
+        }
+
+        mdebug1(FIM_REALTIME_NEWDIRECTORY, dir);
     }
-
-    /* Maximum limit for realtime on Windows */
-    if (_get_realtime_watches() >= syscheck.max_fd_win_rt) {
-        mdebug1(FIM_REALTIME_MAXNUM_WATCHES, dir);
-        w_mutex_unlock(&syscheck.fim_realtime_mutex);
-        return 0;
-    }
-
-    os_calloc(1, sizeof(win32rtfim), rtlocald);
-
-    rtlocald->h = CreateFile(dir, FILE_LIST_DIRECTORY, FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                             OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED, NULL);
-
-    if (rtlocald->h == INVALID_HANDLE_VALUE || rtlocald->h == NULL) {
-        os_free(rtlocald);
-        mdebug2(FIM_REALTIME_ADD, dir);
-
-        w_mutex_unlock(&syscheck.fim_realtime_mutex);
-        return 0;
-    }
-
-    /* Add final elements to the hash */
-    os_strdup(dir, rtlocald->dir);
-    os_strdup(dir, rtlocald->overlap.hEvent);
-    rtlocald->watch_status = FIM_RT_HANDLE_OPEN;
-
-    /* Add directory to be monitored */
-    if(realtime_win32read(rtlocald) == 0) {
-        mdebug1(FIM_REALTIME_DIRECTORYCHANGES, rtlocald->dir);
-        free_win32rtfim_data(rtlocald);
-
-        w_mutex_unlock(&syscheck.fim_realtime_mutex);
-        return 0;
-    }
-
-    if (!OSHash_Add_ex(syscheck.realtime->dirtb, wdchar, rtlocald)) {
-        merror_exit(FIM_CRITICAL_ERROR_OUT_MEM);
-    }
-
-    mdebug2(FIM_REALTIME_NEWDIRECTORY, dir);
 
     w_mutex_unlock(&syscheck.fim_realtime_mutex);
+
     return 1;
 }
 
-void fim_realtime_delete_watches(__attribute__((unused)) const directory_t *configuration) {
-    return;
+int fim_check_realtime_directory(win32rtfim *rtlocald) {
+    assert(rtlocald != NULL);
+
+    if (!w_directory_exists(rtlocald->dir)) {
+        /* If directory monitored doesn't exist now,
+        close handle to remove watcher and set watch_status to one.
+        Maybe, it will be removed from the hash table in RTCallBack.
+        If it doesn't happend, we will remove in next call to the function */
+
+        if (rtlocald->watch_status == FIM_RT_HANDLE_CLOSED) {
+            mdebug1(FIM_REALTIME_CALLBACK, rtlocald->dir);
+            rtlocald = OSHash_Delete_ex(syscheck.realtime->dirtb, rtlocald->dir);
+            free_win32rtfim_data(rtlocald);
+            return 1;
+        }
+
+        if (rtlocald->h != NULL && rtlocald->h != INVALID_HANDLE_VALUE) {
+            CloseHandle(rtlocald->h);
+            rtlocald->watch_status = FIM_RT_HANDLE_CLOSED;
+            return 1;
+        }
+    }
+
+    return 0;
 }
 
 // LCOV_EXCL_START
@@ -721,19 +628,16 @@ void realtime_sanitize_watch_map() {
 
 #else /* !WIN32 */
 
-int realtime_start() {
+int realtime_start()
+{
     merror(FIM_ERROR_REALTIME_INITIALIZE);
 
     return (0);
 }
 
-int realtime_adddir(__attribute__((unused)) const char *dir,
-                    __attribute__((unused)) directory_t *configuration) {
+int realtime_adddir(__attribute__((unused)) const char *dir, __attribute__((unused))int whodata, __attribute__((unused))int followsl)
+{
     return (0);
-}
-
-void fim_realtime_delete_watches(__attribute__((unused)) const directory_t *configuration) {
-    return;
 }
 
 void realtime_process()
@@ -746,33 +650,3 @@ void realtime_sanitize_watch_map() {
 }
 
 #endif /* WIN32 */
-
-int fim_realtime_get_queue_overflow() {
-    int retval;
-
-    w_mutex_lock(&syscheck.fim_realtime_mutex);
-    if (syscheck.realtime != NULL) {
-        retval = syscheck.realtime->queue_overflow;
-    } else {
-        retval = 0;
-    }
-    w_mutex_unlock(&syscheck.fim_realtime_mutex);
-
-    return retval;
-}
-
-void fim_realtime_set_queue_overflow(int value) {
-    w_mutex_lock(&syscheck.fim_realtime_mutex);
-    if (syscheck.realtime != NULL) {
-        syscheck.realtime->queue_overflow = value;
-    }
-    w_mutex_unlock(&syscheck.fim_realtime_mutex);
-}
-
-void fim_realtime_print_watches() {
-    w_mutex_lock(&syscheck.fim_realtime_mutex);
-    if (syscheck.realtime != NULL) {
-        mdebug2(FIM_NUM_WATCHES, OSHash_Get_Elem_ex(syscheck.realtime->dirtb));
-    }
-    w_mutex_unlock(&syscheck.fim_realtime_mutex);
-}

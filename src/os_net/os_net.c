@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All rights reserved.
  *
@@ -16,11 +16,6 @@
 #include "shared.h"
 #include "os_net.h"
 #include "wazuh_modules/wmodules.h"
-
-#ifdef WIN32
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wcast-function-type"
-#endif
 
 #ifdef __MACH__
 #define TCP_KEEPIDLE TCP_KEEPALIVE
@@ -56,16 +51,28 @@ static int OS_Bindport(u_int16_t _port, unsigned int _proto, const char *_ip, in
 {
     int ossock;
     struct sockaddr_in server;
+
+#ifndef WIN32
     struct sockaddr_in6 server6;
+#else
+    ipv6 = 0;
+#endif
 
     if (_proto == IPPROTO_UDP) {
-        if ((ossock = socket(ipv6 == 1 ? AF_INET6 : AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
+#ifndef WIN32
+        if ((ossock = socket(ipv6 == 1 ? PF_INET6 : PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
+#else
+        if ((ossock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
+#endif
             return OS_SOCKTERR;
         }
     } else if (_proto == IPPROTO_TCP) {
         int flag = 1;
-
-        if ((ossock = socket(ipv6 == 1 ? AF_INET6 : AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+#ifndef WIN32
+        if ((ossock = socket(ipv6 == 1 ? PF_INET6 : PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+#else
+        if ((ossock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+#endif
             return (int)(OS_SOCKTERR);
         }
 
@@ -79,20 +86,17 @@ static int OS_Bindport(u_int16_t _port, unsigned int _proto, const char *_ip, in
     }
 
     if (ipv6) {
+#ifndef WIN32
         memset(&server6, 0, sizeof(server6));
         server6.sin6_family = AF_INET6;
         server6.sin6_port = htons( _port );
-
-        if ((_ip == NULL) || (_ip[0] == '\0')) {
-            server6.sin6_addr = in6addr_any;
-        } else {
-            get_ipv6_numeric(_ip, &server6.sin6_addr);
-        }
+        server6.sin6_addr = in6addr_any;
 
         if (bind(ossock, (struct sockaddr *) &server6, sizeof(server6)) < 0) {
             OS_CloseSocket(ossock);
             return (OS_SOCKTERR);
         }
+#endif
     } else {
         memset(&server, 0, sizeof(server));
         server.sin_family = AF_INET;
@@ -101,7 +105,7 @@ static int OS_Bindport(u_int16_t _port, unsigned int _proto, const char *_ip, in
         if ((_ip == NULL) || (_ip[0] == '\0')) {
             server.sin_addr.s_addr = htonl(INADDR_ANY);
         } else {
-            get_ipv4_numeric(_ip, &server.sin_addr);
+            server.sin_addr.s_addr = inet_addr(_ip);
         }
 
         if (bind(ossock, (struct sockaddr *) &server, sizeof(server)) < 0) {
@@ -146,7 +150,7 @@ int OS_BindUnixDomain(const char *path, int type, int max_msg_size)
     n_us.sun_family = AF_UNIX;
     strncpy(n_us.sun_path, path, sizeof(n_us.sun_path) - 1);
 
-    if ((ossock = socket(AF_UNIX, type, 0)) < 0) {
+    if ((ossock = socket(PF_UNIX, type, 0)) < 0) {
         return (OS_SOCKTERR);
     }
 
@@ -196,7 +200,7 @@ int OS_ConnectUnixDomain(const char *path, int type, int max_msg_size)
     /* Set up path */
     strncpy(n_us.sun_path, path, sizeof(n_us.sun_path) - 1);
 
-    if ((ossock = socket(AF_UNIX, type, 0)) < 0) {
+    if ((ossock = socket(PF_UNIX, type, 0)) < 0) {
         return (OS_SOCKTERR);
     }
 
@@ -241,14 +245,26 @@ static int OS_Connect(u_int16_t _port, unsigned int protocol, const char *_ip, i
     int ossock;
     int max_msg_size = OS_MAXSTR + 512;
     struct sockaddr_in server;
+#ifndef WIN32
     struct sockaddr_in6 server6;
+#else
+    ipv6 = 0;
+#endif
 
     if (protocol == IPPROTO_TCP) {
-        if ((ossock = socket(ipv6 == 1 ? AF_INET6 : AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+#ifndef WIN32
+        if ((ossock = socket(ipv6 == 1 ? PF_INET6 : PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+#else
+        if ((ossock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+#endif
             return (OS_SOCKTERR);
         }
     } else if (protocol == IPPROTO_UDP) {
-        if ((ossock = socket(ipv6 == 1 ? AF_INET6 : AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
+#ifndef WIN32
+        if ((ossock = socket(ipv6 == 1 ? PF_INET6 : PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
+#else
+        if ((ossock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
+#endif
             return (OS_SOCKTERR);
         }
     } else {
@@ -261,20 +277,22 @@ static int OS_Connect(u_int16_t _port, unsigned int protocol, const char *_ip, i
     }
 
     if (ipv6 == 1) {
+#ifndef WIN32
         memset(&server6, 0, sizeof(server6));
         server6.sin6_family = AF_INET6;
         server6.sin6_port = htons( _port );
-        get_ipv6_numeric(_ip, &server6.sin6_addr);
+        inet_pton(AF_INET6, _ip, &server6.sin6_addr.s6_addr);
 
         if (connect(ossock, (struct sockaddr *)&server6, sizeof(server6)) < 0) {
             OS_CloseSocket(ossock);
             return (OS_SOCKTERR);
         }
+#endif
     } else {
         memset(&server, 0, sizeof(server));
         server.sin_family = AF_INET;
         server.sin_port = htons( _port );
-        get_ipv4_numeric(_ip, &server.sin_addr);
+        server.sin_addr.s_addr = inet_addr(_ip);
 
         if (connect(ossock, (struct sockaddr *)&server, sizeof(server)) < 0) {
 #ifdef WIN32
@@ -366,7 +384,7 @@ int OS_SendUDPbySize(int socket, int size, const char *msg)
 int OS_AcceptTCP(int socket, char *srcip, size_t addrsize)
 {
     int clientsocket;
-    struct sockaddr_storage _nc;
+    struct sockaddr_in _nc;
     socklen_t _ncl;
 
     memset(&_nc, 0, sizeof(_nc));
@@ -377,17 +395,8 @@ int OS_AcceptTCP(int socket, char *srcip, size_t addrsize)
         return (-1);
     }
 
-    switch (_nc.ss_family) {
-    case AF_INET:
-        get_ipv4_string(((struct sockaddr_in *)&_nc)->sin_addr, srcip, addrsize - 1);
-        break;
-    case AF_INET6:
-        get_ipv6_string(((struct sockaddr_in6 *)&_nc)->sin6_addr, srcip, addrsize - 1);
-        break;
-    default:
-        close(clientsocket);
-        return (-1);
-    }
+    strncpy(srcip, inet_ntoa(_nc.sin_addr), addrsize - 1);
+    srcip[addrsize - 1] = '\0';
 
     return (clientsocket);
 }
@@ -499,45 +508,38 @@ int OS_SendUnix(int socket, const char *msg, int size)
 }
 #endif
 
-/*
- * Retrieve the IP of a host
- */
+/* Calls gethostbyname (tries x attempts) */
 char *OS_GetHost(const char *host, unsigned int attempts)
 {
     unsigned int i = 0;
-    int status = 0;
-    char *ip = NULL;
-    struct addrinfo *addr, *p;
+    size_t sz;
+    char *ip;
+    struct hostent *h;
 
     if (host == NULL) {
         return (NULL);
     }
 
     while (i <= attempts) {
-        if (status = getaddrinfo(host, NULL, NULL, &addr), status) {
+        if ((h = gethostbyname(host)) == NULL) {
             sleep(1);
             i++;
             continue;
         }
 
-        for(p = addr; p != NULL; p = p->ai_next) {
-            if (p->ai_family == AF_INET) {
-                os_calloc(IPSIZE + 1, sizeof(char), ip);
-                get_ipv4_string(((struct sockaddr_in *)p->ai_addr)->sin_addr, ip, IPSIZE);
-                break;
-            } else if (p->ai_family == AF_INET6) {
-                os_calloc(IPSIZE + 1, sizeof(char), ip);
-                get_ipv6_string(((struct sockaddr_in6 *)p->ai_addr)->sin6_addr, ip, IPSIZE);
-                break;
-            }
+        sz = strlen(inet_ntoa(*((struct in_addr *)h->h_addr))) + 1;
+        if ((ip = (char *) calloc(sz, sizeof(char))) == NULL) {
+            return (NULL);
         }
 
-        freeaddrinfo(addr);
+#ifndef __clang_analyzer__
+        strncpy(ip, inet_ntoa(*((struct in_addr *)h->h_addr)), sz - 1);
+#endif
 
-        return ip;
+        return (ip);
     }
 
-    return NULL;
+    return (NULL);
 }
 
 int OS_CloseSocket(int socket)
@@ -656,7 +658,7 @@ int OS_SendSecureTCP(int sock, uint32_t size, const void * msg) {
  * This function reads a header containing message size as 4-byte little-endian unsigned integer.
  * Return recvval on success or OS_SOCKTERR on error.
  */
-int OS_RecvSecureTCP(int sock, char * ret, uint32_t size) {
+int OS_RecvSecureTCP(int sock, char * ret,uint32_t size) {
     ssize_t recvval, recvb;
     uint32_t msgsize;
 
@@ -864,162 +866,3 @@ int wnet_select(int sock, int timeout) {
 
     return select(sock + 1, &fdset, NULL, NULL, &fdtimeout);
 }
-
-void resolve_hostname(char **hostname, int attempts) {
-    char *tmp_str;
-    char *f_ip;
-
-    assert(hostname != NULL);
-    if (OS_IsValidIP(*hostname, NULL) == 1) {
-        return;
-    }
-
-    tmp_str = strchr(*hostname, '/');
-    if (tmp_str) {
-        *tmp_str = '\0';   // LCOV_EXCL_LINE
-    }
-
-    f_ip = OS_GetHost(*hostname, attempts);
-
-    char ip_str[128] = {0};
-    if (f_ip) {
-        snprintf(ip_str, 127, "%s/%s", *hostname, f_ip);
-        free(f_ip);
-    } else {
-        snprintf(ip_str, 127, "%s/", *hostname);
-    }
-    free(*hostname);
-    os_strdup(ip_str, *hostname);
-}
-
-const char *get_ip_from_resolved_hostname(const char *resolved_hostname){
-    char *tmp_str;
-    assert(resolved_hostname != NULL);
-
-    /* Check if we have a resolved_hostname or an IP */
-    tmp_str = strchr(resolved_hostname, '/');
-
-    return tmp_str ? ++tmp_str : resolved_hostname;
-}
-
-int get_ipv4_numeric(const char *address, struct in_addr *addr) {
-    int ret = OS_INVALID;
-
-#ifdef WIN32
-    if (checkVista()) {
-        typedef INT (WINAPI * inet_pton_t)(INT, PCSTR, PVOID);
-        inet_pton_t InetPton = (inet_pton_t)GetProcAddress(GetModuleHandle("ws2_32.dll"), "inet_pton");
-
-        if (NULL != InetPton) {
-            if (InetPton(AF_INET, address, addr) == 1) {
-                ret = OS_SUCCESS;
-            }
-        } else {
-            mwarn("It was not possible to convert IPv4 address");
-        }
-    } else {
-        if ((addr->s_addr = inet_addr(address)) > 0) {
-            ret = OS_SUCCESS;
-        }
-    }
-#else
-    if (inet_pton(AF_INET, address, addr) == 1) {
-        ret = OS_SUCCESS;
-    }
-#endif
-
-    return ret;
-}
-
-int get_ipv6_numeric(const char *address, struct in6_addr *addr6) {
-    int ret = OS_INVALID;
-
-#ifdef WIN32
-    if (checkVista()) {
-        typedef INT (WINAPI * inet_pton_t)(INT, PCSTR, PVOID);
-        inet_pton_t InetPton = (inet_pton_t)GetProcAddress(GetModuleHandle("ws2_32.dll"), "inet_pton");
-
-        if (NULL != InetPton) {
-            if (InetPton(AF_INET6, address, addr6) == 1) {
-                ret = OS_SUCCESS;
-            }
-        } else {
-            mwarn("It was not possible to convert IPv6 address");
-        }
-    } else {
-        mwarn("IPv6 in Windows XP is not supported");
-    }
-#else
-    if (inet_pton(AF_INET6, address, addr6) == 1) {
-        ret = OS_SUCCESS;
-    }
-#endif
-
-    return ret;
-}
-
-int get_ipv4_string(struct in_addr addr, char *address, size_t address_size) {
-    int ret = OS_INVALID;
-
-#ifdef WIN32
-    if (checkVista()) {
-        typedef PCSTR (WINAPI * inet_ntop_t)(INT, PVOID, PSTR, size_t);
-        inet_ntop_t InetNtop = (inet_ntop_t)GetProcAddress(GetModuleHandle("ws2_32.dll"), "inet_ntop");
-
-        if (NULL != InetNtop) {
-            if (InetNtop(AF_INET, &addr, address, address_size)) {
-                ret = OS_SUCCESS;
-            }
-        } else {
-            mwarn("It was not possible to convert IPv4 address");
-        }
-    } else {
-        char *aux = inet_ntoa(addr);
-        if (aux) {
-            strncpy(address, aux, address_size);
-            ret = OS_SUCCESS;
-        }
-    }
-#else
-    if (inet_ntop(AF_INET, &addr, address, address_size)) {
-        ret = OS_SUCCESS;
-    }
-#endif
-
-    return ret;
-}
-
-int get_ipv6_string(struct in6_addr addr6, char *address, size_t address_size) {
-    int ret = OS_INVALID;
-
-#ifdef WIN32
-    if (checkVista()) {
-        typedef PCSTR (WINAPI * inet_ntop_t)(INT, PVOID, PSTR, size_t);
-        inet_ntop_t InetNtop = (inet_ntop_t)GetProcAddress(GetModuleHandle("ws2_32.dll"), "inet_ntop");
-
-        if (NULL != InetNtop) {
-            if (InetNtop(AF_INET6, &addr6, address, address_size)) {
-                ret = OS_SUCCESS;
-            }
-        } else {
-            mwarn("It was not possible to convert IPv6 address");
-        }
-    } else {
-        mwarn("IPv6 in Windows XP is not supported");
-    }
-#else
-    if (inet_ntop(AF_INET6, &addr6, address, address_size)) {
-        ret = OS_SUCCESS;
-    }
-#endif
-
-    if ((ret == OS_SUCCESS) && !OS_GetIPv4FromIPv6(address, IPSIZE)) {
-        OS_ExpandIPv6(address, IPSIZE);
-    }
-
-    return ret;
-}
-
-#ifdef WIN32
-#pragma GCC diagnostic pop
-#endif

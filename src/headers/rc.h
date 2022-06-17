@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All right reserved.
  *
@@ -42,6 +42,5 @@
 #define HC_SYSCOLLECTOR     "syscollector_"
 #define HC_FIM_FILE         "fim_file "
 #define HC_FIM_REGISTRY     "fim_registry "
-#define HC_FORCE_RECONNECT  "force_reconnect"
 
 #endif /* RC_H */

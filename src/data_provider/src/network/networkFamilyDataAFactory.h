@@ -1,6 +1,6 @@
 /*
  * Wazuh SYSINFO
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * October 24, 2020.
  *
  * This program is free software; you can redistribute it
@@ -17,60 +17,49 @@
 #include "networkInterfaceLinux.h"
 #include "networkInterfaceBSD.h"
 #include "networkInterfaceWindows.h"
-#include "networkInterfaceSolaris.h"
 #include "sharedDefs.h"
 
 template <OSType osType>
 class FactoryNetworkFamilyCreator final
 {
-    public:
-        static std::shared_ptr<IOSNetwork> create(const std::shared_ptr<INetworkInterfaceWrapper>& /*interface*/)
+public:
+    static std::shared_ptr<IOSNetwork> create(const std::shared_ptr<INetworkInterfaceWrapper>& /*interface*/)
+    {
+        throw std::runtime_error
         {
-            throw std::runtime_error
-            {
-                "Error creating network data retriever."
-            };
-        }
+            "Error creating network data retriever."
+        };
+    }
 };
 
 template <>
 class FactoryNetworkFamilyCreator<OSType::LINUX> final
 {
-    public:
-        static std::shared_ptr<IOSNetwork> create(const std::shared_ptr<INetworkInterfaceWrapper>& interfaceWrapper)
-        {
-            return FactoryLinuxNetwork::create(interfaceWrapper);
-        }
+public:
+    static std::shared_ptr<IOSNetwork> create(const std::shared_ptr<INetworkInterfaceWrapper>& interfaceWrapper)
+    {
+        return FactoryLinuxNetwork::create(interfaceWrapper);
+    }
 };
 
 template <>
 class FactoryNetworkFamilyCreator<OSType::BSDBASED> final
 {
-    public:
-        static std::shared_ptr<IOSNetwork> create(const std::shared_ptr<INetworkInterfaceWrapper>& interfaceWrapper)
-        {
-            return FactoryBSDNetwork::create(interfaceWrapper);
-        }
-};
+public:
+    static std::shared_ptr<IOSNetwork> create(const std::shared_ptr<INetworkInterfaceWrapper>& interfaceWrapper)
+    {
+        return FactoryBSDNetwork::create(interfaceWrapper);
+    }
+};    
 
 template <>
 class FactoryNetworkFamilyCreator<OSType::WINDOWS> final
 {
-    public:
-        static std::shared_ptr<IOSNetwork> create(const std::shared_ptr<INetworkInterfaceWrapper>& interfaceWrapper)
-        {
-            return FactoryWindowsNetwork::create(interfaceWrapper);
-        }
-};
-
-template <>
-class FactoryNetworkFamilyCreator<OSType::SOLARIS> final
-{
-    public:
-        static std::shared_ptr<IOSNetwork> create(const std::shared_ptr<INetworkInterfaceWrapper>& interfaceWrapper)
-        {
-            return FactorySolarisNetwork::create(interfaceWrapper);
-        }
-};
+public:
+    static std::shared_ptr<IOSNetwork> create(const std::shared_ptr<INetworkInterfaceWrapper>& interfaceWrapper)
+    {
+        return FactoryWindowsNetwork::create(interfaceWrapper);
+    }
+};    
 
 #endif // _NETWORK_FAMILY_DATA_AFACTORY_H

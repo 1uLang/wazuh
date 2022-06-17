@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All rights reserved.
  *
@@ -7,9 +7,6 @@
  * License (version 2) as published by the FSF - Free Software
  * Foundation.
  */
-
-#ifndef MANAGE_AGENTS_H
-#define MANAGE_AGENTS_H
 
 #include "shared.h"
 #include "sec.h"
@@ -46,6 +43,8 @@ char *IPExist(const char *u_ip);
 char *getFullnameById(const char *id);
 int OS_AddNewAgent(keystore *keys, const char *id, const char *name, const char *ip, const char *key);
 int OS_RemoveAgent(const char *id);
+double OS_AgentAntiquity(const char *name, const char *ip);
+double OS_AgentAntiquity_ID(const char *id);
 void OS_AddAgentTimestamp(const char *id, const char *name, const char *ip, time_t now);
 void OS_RemoveAgentTimestamp(const char *id);
 void OS_RemoveAgentGroup(const char *id);
@@ -149,5 +148,3 @@ extern char shost[];
 #define BANNER_CLIENT   "   (I)mport key from the server (I).\n" \
                         "   (Q)uit.\n" \
                         "Choose your action: I or Q: "
-
-#endif

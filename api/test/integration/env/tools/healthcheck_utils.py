@@ -1,57 +1,9 @@
-import json
 import os
 import re
 import socket
 import time
-import subprocess
 
-# Configuration
-protocol = 'https'
-host = 'localhost'
-port = '55000'
-user = 'testing'
-password = 'wazuh'
-
-# Variables
-base_url = "{}://{}:{}".format(protocol, host, port)
-login_url = "{}/security/user/authenticate".format(base_url)
-
-HEALTHCHECK_TOKEN_FILE = '/tmp/healthcheck/healthcheck.token'
-OSSEC_LOG_PATH = '/var/ossec/logs/ossec.log'
-
-# Variable used to compare default daemons_check.txt with an output with cluster disabled
-CHECK_CLUSTERD_DAEMON = '1c1\n< wazuh-clusterd not running...\n---\n> wazuh-clusterd is running...\n'
-
-
-def get_login_header(user, password):
-    from base64 import b64encode
-    basic_auth = f"{user}:{password}".encode()
-    return {'Authorization': f'Basic {b64encode(basic_auth).decode()}'}
-
-
-def get_response(url, headers):
-    """Get API result for GET request.
-
-    Parameters
-    ----------
-    url : str
-        URL of the API (+ endpoint and parameters if needed).
-    headers : dict
-        Headers required by the API.
-
-    Returns
-    -------
-    Dict
-        API response for the request.
-    """
-    import urllib3
-    # Disable insecure https warnings (for self-signed SSL certificates)
-    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-    from requests import get
-    request_result = get(url, headers=headers, verify=False)
-
-    if request_result.status_code == 200:
-        return json.loads(request_result.content.decode())
+OSSEC_LOG_PATH = "/var/ossec/logs/ossec.log"
 
 
 def get_agent_health_base():
@@ -91,42 +43,21 @@ def check(result):
         return 1
 
 
-def get_master_health(env_mode):
+def get_master_health():
     os.system("/var/ossec/bin/agent_control -ls > /tmp/output.txt")
-    os.system("/var/ossec/bin/wazuh-control status > /tmp/daemons.txt")
-
+    os.system("/var/ossec/bin/hids-control status > /tmp/daemons.txt")
     check0 = check(os.system("diff -q /tmp/output.txt /tmp/healthcheck/agent_control_check.txt"))
-
-    if env_mode == "standalone":
-        # If the environment is in standalone mode, the only difference is in the clusterd daemon
-        check1 = check(not
-                       (subprocess.run(['diff', '/tmp/daemons.txt', '/tmp/healthcheck/daemons_check.txt'],
-                                       stdout=subprocess.PIPE).stdout.decode('utf-8')
-                        == CHECK_CLUSTERD_DAEMON))
-    else:
-        check1 = check(os.system("diff -q /tmp/daemons.txt /tmp/healthcheck/daemons_check.txt"))
-
-    check2 = get_api_health()
-
+    check1 = check(os.system("diff -q /tmp/daemons.txt /tmp/healthcheck/daemons_check.txt"))
+    check2 = check(os.system("grep -qs 'Listening on ' /var/ossec/logs/api.log"))
     return check0 or check1 or check2
 
 
 def get_worker_health():
-    os.system("/var/ossec/bin/wazuh-control status > /tmp/daemons.txt")
-    return check(os.system("diff -q /tmp/daemons.txt /tmp/healthcheck/daemons_check.txt"))
+    os.system("/var/ossec/bin/hids-control status > /tmp/daemons.txt")
+    check0 = check(os.system("diff -q /tmp/daemons.txt /tmp/healthcheck/daemons_check.txt"))
+    check1 = check(os.system("grep -qs 'Listening on ' /var/ossec/logs/api.log"))
+    return check0 or check1
 
 
-def get_manager_health_base(env_mode):
-    return get_master_health(
-        env_mode=env_mode) if socket.gethostname() == 'wazuh-master' else get_worker_health()
-
-
-def get_api_health():
-    if not os.path.exists(HEALTHCHECK_TOKEN_FILE):
-        if get_response(login_url, get_login_header(user, password)):
-            open(HEALTHCHECK_TOKEN_FILE, mode='w').close()
-            return 0
-        else:
-            return 1
-    else:
-        return 0
+def get_manager_health_base():
+    return get_master_health() if socket.gethostname() == 'hids-master' else get_worker_health()

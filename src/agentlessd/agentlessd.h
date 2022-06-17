@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All rights reserved.
  *
@@ -14,7 +14,7 @@
 #include "config/agentlessd-config.h"
 
 #ifndef ARGV0
-#define ARGV0 "wazuh-agentlessd"
+#define ARGV0 "hids-agentlessd"
 #endif
 
 /** Prototypes **/

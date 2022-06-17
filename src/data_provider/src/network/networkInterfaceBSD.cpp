@@ -1,6 +1,6 @@
 /*
  * Wazuh SYSINFO
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2021, Wazuh Inc.
  * October 24, 2020.
  *
  * This program is free software; you can redistribute it
@@ -20,8 +20,7 @@ std::shared_ptr<IOSNetwork> FactoryBSDNetwork::create(const std::shared_ptr<INet
     if (interfaceWrapper)
     {
         const auto family { interfaceWrapper->family() };
-
-        if (AF_INET == family)
+        if(AF_INET == family)
         {
             ret = std::make_shared<BSDNetworkImpl<AF_INET>>(interfaceWrapper);
         }
@@ -33,14 +32,12 @@ std::shared_ptr<IOSNetwork> FactoryBSDNetwork::create(const std::shared_ptr<INet
         {
             ret = std::make_shared<BSDNetworkImpl<AF_LINK>>(interfaceWrapper);
         }
-
         // else: The current interface family is not supported
     }
     else
     {
         throw std::runtime_error { "Error nullptr interfaceWrapper instance." };
     }
-
     return ret;
 }
 
@@ -49,7 +46,6 @@ void BSDNetworkImpl<AF_INET>::buildNetworkData(nlohmann::json& network)
 {
     // Get IPv4 address
     const auto address { m_interfaceAddress->address() };
-
     if (!address.empty())
     {
         nlohmann::json ipv4JS {};
@@ -70,7 +66,6 @@ template <>
 void BSDNetworkImpl<AF_INET6>::buildNetworkData(nlohmann::json& network)
 {
     const auto address { m_interfaceAddress->addressV6() };
-
     if (!address.empty())
     {
         nlohmann::json ipv6JS {};

@@ -1,6 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
-# Copyright (C) 2015, Wazuh Inc.
+# Copyright (C) 2015-2020, Wazuh Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@ import time
 try:
     import docker
 except:
-    sys.stderr.write("'docker' module needs to be installed. Execute 'pip3 install docker' to do it.\n")
+    sys.stderr.write("'docker' module needs to be installed. Execute 'pip install docker' to do it.\n")
     exit(1)
 
 class DockerListener:
@@ -38,7 +38,7 @@ class DockerListener:
             # Get Wazuh installation path, obtained relative to the path of this file
             self.wazuh_path = os.path.abspath(os.path.join(__file__, "../../.."))
         self.wazuh_queue = '{0}/queue/sockets/queue'.format(self.wazuh_path)
-        self.msg_header = "1:Wazuh-Docker:"
+        self.msg_header = "1:Hids-Docker:"
         # docker variables
         self.client = docker.from_env()
         self.send_msg(json.dumps({self.field_debug_name: "Started"}))
@@ -132,13 +132,13 @@ class DockerListener:
             s.close()
         except socket.error as e:
             if e.errno == 111:
-                sys.stderr.write('Wazuh must be running.\n')
+                sys.stderr.write('Hids must be running.\n')
                 sys.exit(11)
             else:
-                sys.stderr.write("Error sending message to wazuh: {}\n".format(e))
+                sys.stderr.write("Error sending message to hids: {}\n".format(e))
                 sys.exit(13)
         except Exception as e:
-            sys.stderr.write("Error sending message to wazuh: {}\n".format(e))
+            sys.stderr.write("Error sending message to hids: {}\n".format(e))
             sys.exit(13)
 
 

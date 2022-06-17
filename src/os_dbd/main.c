@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All rights reserved.
  *
@@ -12,7 +12,7 @@
 #include "dbd.h"
 
 #ifndef ARGV0
-#define ARGV0 "wazuh-dbd"
+#define ARGV0 "hids-dbd"
 #endif
 
 /* Prototypes */
@@ -20,6 +20,7 @@ static void print_db_info(void);
 static void cleanup();
 static void handler(int signum);
 static void help_dbd(char *home_path) __attribute__((noreturn));
+
 
 /* Print information regarding enabled databases */
 static void print_db_info()
@@ -49,7 +50,7 @@ static void help_dbd(char *home_path)
     print_out("                to increase the debug level.");
     print_out("    -t          Test configuration");
     print_out("    -f          Run in foreground");
-    print_out("    -u <user>   User to run as (default: %s)", USER);
+    print_out("    -u <user>   User to run as (default: %s)", MAILUSER);
     print_out("    -g <group>  Group to run as (default: %s)", GROUPGLOBAL);
     print_out("    -c <config> Configuration file to use (default: %s)", OSSECCONF);
     print_out("    -D <dir>    Directory to chroot and chdir into (default: %s)", home_path);
@@ -61,14 +62,15 @@ static void help_dbd(char *home_path)
     exit(1);
 }
 
-int main (int argc, char **argv) {
+int main(int argc, char **argv)
+{
     int c, test_config = 0, run_foreground = 0;
     uid_t uid;
     gid_t gid;
     unsigned int d;
 
-    /* Use USER (read only) */
-    const char *user = USER;
+    /* Use MAILUSER (read only) */
+    const char *user = MAILUSER;
     const char *group = GROUPGLOBAL;
     const char *cfg = OSSECCONF;
     char *home_path = w_homedir(argv[0]);
@@ -211,6 +213,7 @@ int main (int argc, char **argv) {
 
         d++;
         sleep(d * 60);
+
     }
 
     /* If after the maxreconnect attempts, it still didn't work, exit here */
@@ -284,7 +287,7 @@ void handler(int signum) {
     case SIGINT:
     case SIGTERM:
         minfo(SIGNAL_RECV, signum, strsignal(signum));
-        exit(EXIT_SUCCESS);
+        break;
     default:
         merror("unknown signal (%d)", signum);
     }

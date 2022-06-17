@@ -3,7 +3,7 @@
   -  Author: Daniel Cid.
   -  Contributed by: Ahmet Ozturk
   -  Updated by Wazuh, Inc.
-  -  Copyright (C) 2015, Wazuh Inc.
+  -  Copyright (C) 2015-2020, Wazuh Inc.
   -  Copyright (C) 2009 Trend Micro Inc.
   -  This program is a free software; you can redistribute it and/or modify it under the terms of GPLv2.
 -->
@@ -183,7 +183,7 @@
     <info type="link">http://www.symantec.com/avcenter/venc/data/w32.beagle.dp.html</info>
     <info type="text">W32.Beagle.DP is a Worm that drops Trojan.Lodear and opens a back door on the compromised computer.</info>
     <mitre>
-      <id>T1565.001</id>
+      <id>T1492</id>
     </mitre>
     <group>pci_dss_11.4,pci_dss_6.2,gdpr_IV_35.7.d,nist_800_53_SI.4,nist_800_53_SI.2,tsc_CC6.1,tsc_CC6.8,tsc_CC7.2,tsc_CC7.3,</group>
   </rule>
@@ -215,7 +215,7 @@
     <mitre>
       <id>T1499</id>
     </mitre>
-    <group>pci_dss_10.6.1,gdpr_IV_35.7.d,</group>
+    <group>gdpr_IV_35.7.d,</group>
   </rule>
 
   <rule id="35058" level="10" frequency="$SQUID_FREQ" timeframe="240">
@@ -226,7 +226,7 @@
     <mitre>
       <id>T1499</id>
     </mitre>
-    <group>pci_dss_10.6.1,gdpr_IV_35.7.d,</group>
+    <group>gdpr_IV_35.7.d,</group>
   </rule>
 
   <rule id="35095" level="0" frequency="4" timeframe="360">

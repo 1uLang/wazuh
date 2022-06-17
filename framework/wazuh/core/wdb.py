@@ -1,4 +1,4 @@
-# Copyright (C) 2015, Wazuh Inc.
+# Copyright (C) 2015-2020, Wazuh Inc.
 # Created by Wazuh, Inc. <info@wazuh.com>.
 # This program is free software; you can redistribute it and/or modify it under the terms of GPLv2
 
@@ -25,7 +25,7 @@ class WazuhDBConnection:
         """
         Constructor
         """
-        self.socket_path = common.WDB_SOCKET
+        self.socket_path = common.wdb_socket_path
         self.request_slice = request_slice
         self.max_size = max_size
         self.__conn = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -97,14 +97,14 @@ class WazuhDBConnection:
 
         # Max size socket buffer is 64KB
         if data_size >= MAX_SOCKET_BUFFER_SIZE:
-            raise WazuhInternalError(2009)
+            raise ValueError
 
         if data[0] == "err":
             raise WazuhError(2003, data[1])
         elif raw:
             return data
         else:
-            return WazuhDBConnection.loads(data[1])
+            return json.loads(data[1], object_hook=WazuhDBConnection.json_decoder)
 
     def _recvall(self, data_size, buffer_size=4096):
         data = bytearray()
@@ -122,33 +122,11 @@ class WazuhDBConnection:
             if v == "(null)":
                 continue
             if isinstance(v, str) and DATE_FORMAT.match(v):
-                result[k] = datetime.datetime.strptime(v, '%Y/%m/%d %H:%M:%S').replace(tzinfo=datetime.timezone.utc)
+                result[k] = datetime.datetime.strptime(v, '%Y/%m/%d %H:%M:%S')
             else:
                 result[k] = v
 
         return result
-
-    @staticmethod
-    def loads(string):
-        """Custom implementation for the JSON loads method with the class decoder.
-        This method takes care of the possible emtpy objects that may be load.
-
-        Parameters
-        ----------
-        string : str
-            String response from `wazuh-db`. It must be a dumped JSON.
-
-        Returns
-        -------
-        JSON
-            JSON object.
-        """
-        data = json.loads(string, object_hook=WazuhDBConnection.json_decoder)
-        if '"(null)"' in string:
-            # To prevent empty dictionaries, clean data if there was any `"(null)"` within the string
-            data = [item for item in data if item]
-
-        return data
 
     def __query_lower(self, query):
         """
@@ -243,20 +221,14 @@ class WazuhDBConnection:
         def send_request_to_wdb(query_lower, step, off, response):
             try:
                 request = query_lower.replace(':limit', 'limit {}'.format(step)).replace(':offset', 'offset {}'.format(off))
-                request_response = self._send(request, raw=True)[1]
-                response.extend(WazuhDBConnection.loads(request_response))
-                if len(request_response)*2 < MAX_SOCKET_BUFFER_SIZE:
-                    return step*2
-                else:
-                    return step
-            except WazuhInternalError:
+                response.extend(self._send(request))
+            except ValueError:
                 # if the step is already 1, it can't be divided
                 if step == 1:
-                    raise WazuhInternalError(2009)
-
+                    raise WazuhInternalError(2007)
                 send_request_to_wdb(query_lower, step // 2, off, response)
                 # Add step // 2 remaining when the step is odd to avoid losing information
-                return send_request_to_wdb(query_lower, step // 2 + step % 2, step // 2 + off, response)
+                send_request_to_wdb(query_lower, step // 2 + step % 2, step // 2 + off, response)
 
         query_lower = self.__query_lower(query)
 
@@ -271,6 +243,7 @@ class WazuhDBConnection:
 
         # only for update queries
         if update:
+            # regex = re.compile(r"\w+ \d+? sql update ([a-z0-9,*_ ]+) set value = '([a-z0-9,*_ ]+)' where key (=|like)?"
             regex = re.compile(r"\w+ \d+? sql update ([\w\d,*_ ]+) set value = '([\w\d,*_ ]+)' where key (=|like)?"
                                r" '([a-z0-9,*_%\- ]+)'")
             if regex.match(query_lower) is None:
@@ -310,24 +283,21 @@ class WazuhDBConnection:
             except IndexError:
                 total = 0
 
-            limit = lim if lim != 0 and lim < total else total
+            limit = lim if lim != 0 else total
 
             response = []
+            step = limit if limit < self.request_slice and limit > 0 else self.request_slice
             if ':limit' not in query_lower:
                 query_lower += ' :limit'
             if ':offset' not in query_lower:
                 query_lower += ' :offset'
 
             try:
-                off = offset
-                while off < limit + offset:
-                    step = limit if self.request_slice > limit > 0 else self.request_slice
-                    # Min() used to avoid fetching more items than the maximum specified in `limit`.
-                    self.request_slice = send_request_to_wdb(query_lower, min(limit + offset - off, step), off, response)
-                    off += step
+                for off in range(offset, limit + offset, step):
+                    send_request_to_wdb(query_lower, step, off, response)
             except ValueError as e:
                 raise WazuhError(2006, str(e))
-            except (WazuhError, WazuhInternalError) as e:
+            except WazuhError as e:
                 raise e
             except Exception as e:
                 raise WazuhInternalError(2007, str(e))

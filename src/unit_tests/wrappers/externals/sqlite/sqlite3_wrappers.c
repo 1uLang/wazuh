@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it
@@ -39,19 +39,6 @@ int __wrap_sqlite3_bind_int64(__attribute__((unused)) sqlite3_stmt *stmt,
     return mock();
 }
 
-int __wrap_sqlite3_bind_double(__attribute__((unused)) sqlite3_stmt *pStmt, int index, double value) {
-    check_expected(index);
-    check_expected(value);
-
-    return mock();
-}
-
-int __wrap_sqlite3_bind_null(__attribute__((unused)) sqlite3_stmt *pStmt, int index) {
-    check_expected(index);
-
-    return mock();
-}
-
 void expect_sqlite3_bind_int64_call(int idx, double val, int ret) {
     expect_value(__wrap_sqlite3_bind_int64, index, idx);
     expect_value(__wrap_sqlite3_bind_int64, value, val);
@@ -85,6 +72,7 @@ int __wrap_sqlite3_bind_parameter_index(__attribute__((unused)) sqlite3_stmt * s
 
     return mock();
 }
+
 
 int __wrap_sqlite3_clear_bindings(__attribute__((unused)) sqlite3_stmt* pStmt) {
     return mock();
@@ -215,8 +203,4 @@ int __wrap_sqlite3_changes(__attribute__((unused)) sqlite3 * db){
 
 int __wrap_sqlite3_get_autocommit(__attribute__((unused)) sqlite3 * db) {
     return mock();
-}
-
-const char*  __wrap_sqlite3_sql(__attribute__((unused)) sqlite3_stmt *pStmt){
-    return mock_ptr_type(char*);
 }

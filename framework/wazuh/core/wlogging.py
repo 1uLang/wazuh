@@ -1,4 +1,4 @@
-# Copyright (C) 2015, Wazuh Inc.
+# Copyright (C) 2015-2020, Wazuh Inc.
 # Created by Wazuh, Inc. <info@wazuh.com>.
 # This program is a free software; you can redistribute it and/or modify it under the terms of GPLv2
 import logging
@@ -26,7 +26,7 @@ class CustomFileRotatingHandler(logging.handlers.TimedRotatingFileHandler):
         logging.handlers.TimedRotatingFileHandler.doRollover(self)
 
         # Set appropiate permissions
-        #os.chown(self.baseFilename, common.wazuh_uid(), common.wazuh_gid())
+        #os.chown(self.baseFilename, common.ossec_uid(), common.ossec_gid())
         #os.chmod(self.baseFilename, 0o660)
 
         # Save rotated file in /logs/wazuh directory
@@ -72,7 +72,7 @@ class WazuhLogger:
         :param logger_name: string sets logger name to register in logging module
         :param custom_formatter: subclass of logging.Formatter. Allows formatting messages depending on their contents
         """
-        self.log_path = os.path.join(common.WAZUH_PATH, log_path)
+        self.log_path = os.path.join(common.wazuh_path, log_path)
         self.tag = tag
         self.logger = None
         self.foreground_mode = foreground_mode

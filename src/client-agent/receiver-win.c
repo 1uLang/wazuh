@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All right reserved.
  *
@@ -23,11 +23,7 @@ static const char * IGNORE_LIST[] = { SHAREDCFG_FILENAME, NULL };
 w_queue_t * winexec_queue;
 
 /* Receive events from the server */
-#ifdef WIN32
-DWORD WINAPI receiver_thread(__attribute__((unused)) LPVOID none)
-#else
 void *receiver_thread(__attribute__((unused)) void *none)
-#endif
 {
     ssize_t recv_b;
     size_t msg_length;
@@ -148,21 +144,6 @@ void *receiver_thread(__attribute__((unused)) void *none)
                         queue_push_ex(winexec_queue, strdup(tmp_msg));
                     }
 
-                    continue;
-                }
-
-                /* Force reconnect agent to the manager */
-                else if (strncmp(tmp_msg, HC_FORCE_RECONNECT, strlen(HC_FORCE_RECONNECT)) == 0) {
-                    /* Set lock and wait for it */
-                    minfo("Wazuh Agent will be reconnected because a reconnect message was received");
-                    os_setwait();
-                    w_agentd_state_update(UPDATE_STATUS, (void *) GA_STATUS_NACTIVE);
-
-                    /* Send sync message */
-                    start_agent(0);
-
-                    os_delwait();
-                    w_agentd_state_update(UPDATE_STATUS, (void *) GA_STATUS_ACTIVE);
                     continue;
                 }
 
@@ -288,7 +269,7 @@ void *receiver_thread(__attribute__((unused)) void *none)
                                     if(!UnmergeFiles(file, SHAREDCFG_DIR, OS_TEXT)){
                                         char msg_output[OS_MAXSTR];
 
-                                        snprintf(msg_output, OS_MAXSTR, "%c:%s:%s:",  LOCALFILE_MQ, "wazuh-agent", AG_IN_UNMERGE);
+                                        snprintf(msg_output, OS_MAXSTR, "%c:%s:%s:",  LOCALFILE_MQ, "hids-agent", AG_IN_UNMERGE);
                                         send_msg(msg_output, -1);
                                     }
                                     else {
@@ -338,11 +319,7 @@ void *receiver_thread(__attribute__((unused)) void *none)
         }
     }
 
-#ifdef WIN32
-    return 0;
-#else
     return (NULL);
-#endif
 }
 
 #endif /* WIN32 */

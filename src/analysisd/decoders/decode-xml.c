@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All rights reserved.
  *
@@ -17,7 +17,7 @@
 #include "plugin_decoders.h"
 #include "config.h"
 
-#ifdef WAZUH_UNIT_TESTING
+#ifdef HIDS_UNIT_TESTING
 // Remove STATIC qualifier from tests
 #define STATIC
 #else
@@ -877,7 +877,7 @@ char *_loadmemory(char *at, char *str, OSList* log_msg)
         size_t strsize = 0;
         if ((strsize = strlen(str)) < OS_SIZE_1024) {
             os_calloc(strsize + 1, sizeof(char), at);
-            memcpy(at, str, strsize);
+            strncpy(at, str, strsize);
             return (at);
         } else {
             smerror(log_msg, SIZE_ERROR, str);
@@ -893,12 +893,13 @@ char *_loadmemory(char *at, char *str, OSList* log_msg)
             smerror(log_msg, SIZE_ERROR, str);
             return (NULL);
         }
-        at = (char *) realloc(at, finalsize * sizeof(char));
+        at = (char *) realloc(at, (finalsize + 1) * sizeof(char));
         if (at == NULL) {
             merror(MEM_ERROR, errno, strerror(errno));
             return (NULL);
         }
-        strcat(at, str);
+        strncat(at, str, strsize);
+        at[finalsize - 1] = '\0';
 
         return (at);
     }

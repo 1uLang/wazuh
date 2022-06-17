@@ -1,6 +1,6 @@
 /*
  * Wazuh RSYNC
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * August 23, 2020.
  *
  * This program is free software; you can redistribute it
@@ -35,10 +35,7 @@ static void log_message(const std::string& msg)
 
 EXPORTED void rsync_initialize(log_fnc_t log_function)
 {
-    RemoteSync::initialize([log_function](const std::string & msg)
-    {
-        log_function(msg.c_str());
-    });
+    RemoteSync::initialize([log_function](const std::string& msg){log_function(msg.c_str());});
 }
 
 EXPORTED void rsync_teardown(void)
@@ -50,17 +47,15 @@ EXPORTED RSYNC_HANDLE rsync_create()
 {
     RSYNC_HANDLE retVal{ nullptr };
     std::string errorMessage;
-
     try
     {
         retVal = RSyncImplementation::instance().create();
     }
     // LCOV_EXCL_START
-    catch (...)
+    catch(...)
     {
         errorMessage += "Unrecognized error.";
     }
-
     // LCOV_EXCL_STOP
 
     log_message(errorMessage);
@@ -74,7 +69,6 @@ EXPORTED int rsync_start_sync(const RSYNC_HANDLE handle,
 {
     auto retVal { -1 };
     std::string errorMessage;
-
     if (!handle || !dbsync_handle || !start_configuration || !callback_data.callback)
     {
         errorMessage += "Invalid parameters.";
@@ -85,7 +79,7 @@ EXPORTED int rsync_start_sync(const RSYNC_HANDLE handle,
         {
             const auto callbackWrapper
             {
-                [callback_data](const std::string & payload)
+                [callback_data](const std::string& payload)
                 {
                     callback_data.callback(payload.c_str(), payload.size(), callback_data.user_data);
                 }
@@ -95,14 +89,12 @@ EXPORTED int rsync_start_sync(const RSYNC_HANDLE handle,
             retVal = 0;
         }
         // LCOV_EXCL_START
-        catch (...)
+        catch(...)
         {
             errorMessage += "Unrecognized error.";
         }
-
         // LCOV_EXCL_STOP
     }
-
     log_message(errorMessage);
     return retVal;
 }
@@ -115,7 +107,6 @@ EXPORTED int rsync_register_sync_id(const RSYNC_HANDLE handle,
 {
     int retVal{ -1 };
     std::string errorMessage;
-
     if (!message_header_id || !dbsync_handle || !sync_configuration || !callback_data.callback)
     {
         errorMessage += "Invalid Parameters.";
@@ -126,7 +117,7 @@ EXPORTED int rsync_register_sync_id(const RSYNC_HANDLE handle,
         {
             const auto callbackWrapper
             {
-                [callback_data](const std::string & payload)
+                [callback_data](const std::string& payload)
                 {
                     callback_data.callback(payload.c_str(), payload.size(), callback_data.user_data);
                 }
@@ -136,11 +127,10 @@ EXPORTED int rsync_register_sync_id(const RSYNC_HANDLE handle,
             retVal = 0;
         }
         // LCOV_EXCL_START
-        catch (...)
+        catch(...)
         {
             errorMessage += "Unrecognized error.";
         }
-
         // LCOV_EXCL_STOP
     }
 
@@ -154,7 +144,6 @@ EXPORTED int rsync_push_message(const RSYNC_HANDLE handle,
 {
     auto retVal { -1 };
     std::string errorMessage;
-
     if (!handle || !payload || !size)
     {
         errorMessage += "Invalid Parameters.";
@@ -170,14 +159,12 @@ EXPORTED int rsync_push_message(const RSYNC_HANDLE handle,
             retVal = 0;
         }
         // LCOV_EXCL_START
-        catch (...)
+        catch(...)
         {
             errorMessage += "Unrecognized error.";
         }
-
         // LCOV_EXCL_STOP
     }
-
     log_message(errorMessage);
     return retVal;
 }
@@ -197,7 +184,6 @@ EXPORTED int rsync_close(const RSYNC_HANDLE handle)
         message += "RSYNC invalid context handle.";
         retVal = -1;
     }
-
     // LCOV_EXCL_STOP
 
     log_message(message);
@@ -222,14 +208,14 @@ void RemoteSync::teardown()
 }
 
 RemoteSync::RemoteSync()
-    : m_handle { RSyncImplementation::instance().create() }
-    , m_shouldBeRemoved{ true }
+: m_handle { RSyncImplementation::instance().create() }
+, m_shouldBeRemoved{ true }
 
 { }
 
 RemoteSync::RemoteSync(RSYNC_HANDLE handle)
-    : m_handle { handle }
-    , m_shouldBeRemoved{ false }
+: m_handle { handle }
+, m_shouldBeRemoved{ false }
 { }
 
 RemoteSync::~RemoteSync()
@@ -245,7 +231,6 @@ RemoteSync::~RemoteSync()
         {
             log_message(ex.what());
         }
-
         // LCOV_EXCL_STOP
     }
 }
@@ -256,7 +241,7 @@ void RemoteSync::startSync(const DBSYNC_HANDLE   dbsyncHandle,
 {
     const auto callbackWrapper
     {
-        [callbackData](const std::string & payload)
+        [callbackData](const std::string& payload)
         {
             callbackData(payload);
         }
@@ -272,7 +257,7 @@ void RemoteSync::registerSyncID(const std::string&    messageHeaderID,
 {
     const auto callbackWrapper
     {
-        [callbackData](const std::string & payload)
+        [callbackData](const std::string& payload)
         {
             callbackData(payload);
         }

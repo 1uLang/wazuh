@@ -1,6 +1,6 @@
 /*
  * Label data operations
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * February 27, 2017.
  *
  * This program is free software; you can redistribute it
@@ -43,11 +43,11 @@ int labels_format(const wlabel_t *labels, char *str, size_t size);
 wlabel_t * labels_dup(const wlabel_t * labels);
 
 /**
- * @brief Function to parse labels JSON from Wazuh DB - global.db - labels table.
+ * @brief Function to parse labels JSON from Hids DB - global.db - labels table.
  * If there are no labels for the agent, returns NULL. Free resources 
  * with labels_free().
  * 
- * @param json_labels The JSON with the labels taken from Wazuh DB.
+ * @param json_labels The JSON with the labels taken from Hids DB.
  * @retval A wlabel_t structure with all the labels on sucess. Null on error or when no labels.
  */
 wlabel_t* labels_parse(cJSON *json_labels);

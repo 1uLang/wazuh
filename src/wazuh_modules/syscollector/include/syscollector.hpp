@@ -1,6 +1,6 @@
 /*
  * Wazuh SysCollector
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * October 8, 2020.
  *
  * This program is free software; you can redistribute it
@@ -75,26 +75,23 @@ private:
     nlohmann::json getOSData();
     nlohmann::json getHardwareData();
     nlohmann::json getNetworkData();
+    nlohmann::json getPackagesData();
     nlohmann::json getPortsData();
+    nlohmann::json getProcessesData();
 
     void registerWithRsync();
-    void updateChanges(const std::string& table,
-                       const nlohmann::json& values);
-    void notifyChange(ReturnTypeCallback result,
-                      const nlohmann::json& data,
-                      const std::string& table);
+    void updateAndNotifyChanges(const std::string& table,
+                                const nlohmann::json& input);
     void scanHardware();
     void scanOs();
     void scanNetwork();
     void scanPackages();
-    void scanHotfixes();
     void scanPorts();
     void scanProcesses();
     void syncOs();
     void syncHardware();
     void syncNetwork();
     void syncPackages();
-    void syncHotfixes();
     void syncPorts();
     void syncProcesses();
     void scan();

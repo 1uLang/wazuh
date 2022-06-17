@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All right reserved.
  *
@@ -212,7 +212,7 @@ int rootcheck_init(int test_config)
 
     /* Set default values */
 #ifndef OSSECHIDS
-    mdebug1(WAZUH_HOMEDIR, home_path);
+    mdebug1(HIDS_HOMEDIR, home_path);
     if (rootcheck.workdir == NULL) {
         rootcheck.workdir = home_path;
     }

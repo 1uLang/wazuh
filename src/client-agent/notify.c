@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All right reserved.
  *
@@ -42,20 +42,30 @@ char *getsharedfiles()
 #ifndef WIN32
 char *get_agent_ip()
 {
-    char agent_ip[IPSIZE + 1] = { '\0' };
-#if defined (__linux__) || defined (__MACH__) || defined (sun) || defined(FreeBSD) || defined(OpenBSD)
+    static char agent_ip[IPSIZE + 1] = { '\0' };
+#if defined (__linux__) || defined (__MACH__) || defined (sun)
+    static time_t last_update = 0;
+    time_t now = time(NULL);
     int sock;
     int i;
-    static const char * REQUEST = "host_ip";
+
+    if ((now - last_update) < agt->main_ip_update_interval) {
+        return strdup(agent_ip);
+    }
+
+    last_update = now;
+    agent_ip[0] = '\0';
 
     for (i = SOCK_ATTEMPTS; i > 0; --i) {
         if (sock = control_check_connection(), sock >= 0) {
-            if (OS_SendUnix(sock, REQUEST, strlen(REQUEST)) < 0) {
+            if (OS_SendUnix(sock, agent_ip, IPSIZE) < 0) {
                 mdebug1("Error sending msg to control socket (%d) %s", errno, strerror(errno));
+                last_update = 0;
             }
             else{
                 if (OS_RecvUnix(sock, IPSIZE, agent_ip) <= 0) {
                     mdebug1("Error receiving msg from control socket (%d) %s", errno, strerror(errno));
+                    last_update = 0;
                     agent_ip[0] = '\0';
                 }
             }
@@ -70,6 +80,7 @@ char *get_agent_ip()
 
     if(sock < 0) {
         mdebug1("Cannot get the agent host's IP because the control module is not available: (%d) %s.", errno, strerror(errno));
+        last_update = 0;
     }
 #endif
     return strdup(agent_ip);
@@ -88,9 +99,7 @@ void run_notify()
     static char tmp_labels[OS_MAXSTR - OS_SIZE_2048] = { '\0' };
     os_md5 md5sum;
     time_t curr_time;
-    static char agent_ip[IPSIZE + 1] = { '\0' };
-    static time_t last_update = 0;
-    static const char no_hash_value[] = "x merged.mg\n";
+    char *agent_ip;
 
     tmp_msg[OS_MAXSTR - OS_HEADER_SIZE + 1] = '\0';
     curr_time = time(0);
@@ -111,20 +120,6 @@ void run_notify()
         w_agentd_state_update(UPDATE_STATUS, (void *) GA_STATUS_ACTIVE);
     }
 #endif
-
-    /* Check if the agent has to be reconnected */
-    if (agt->force_reconnect_interval && (curr_time - last_connection_time) >= agt->force_reconnect_interval) {
-        /* Set lock and wait for it */
-        minfo("Wazuh Agent will be reconnected because of force reconnect interval");
-        os_setwait();
-        w_agentd_state_update(UPDATE_STATUS, (void *) GA_STATUS_NACTIVE);
-
-        /* Send sync message */
-        start_agent(0);
-
-        os_delwait();
-        w_agentd_state_update(UPDATE_STATUS, (void *) GA_STATUS_ACTIVE);
-    }
 
     /* Check if time has elapsed */
     if ((curr_time - g_saved_time) < agt->notify_time) {
@@ -162,43 +157,32 @@ void run_notify()
         clear_merged_hash_cache();
     }
 
-    time_t now = time(NULL);
-    if ((now - last_update) >= agt->main_ip_update_interval) {
-        // Update agent_ip considering main_ip_update_interval value
-        last_update = now;
-        char *tmp_agent_ip = get_agent_ip();
+    agent_ip = get_agent_ip();
 
-        if (tmp_agent_ip) {
-            strncpy(agent_ip, tmp_agent_ip, IPSIZE);
-            os_free(tmp_agent_ip);
-        } else {
-           mdebug1("Cannot update host IP.");
-           *agent_ip = '\0';
-        }
-    }
     /* Create message */
-    if(*agent_ip != '\0' && strcmp(agent_ip, "Err")) {
+    if(agent_ip && strcmp(agent_ip, "Err")) {
         char label_ip[60];
         snprintf(label_ip, sizeof label_ip, "#\"_agent_ip\":%s", agent_ip);
         if ((File_DateofChange(AGENTCONFIG) > 0 ) &&
                 (OS_MD5_File(AGENTCONFIG, md5sum, OS_TEXT) == 0)) {
             snprintf(tmp_msg, OS_MAXSTR - OS_HEADER_SIZE, "#!-%s / %s\n%s%s%s\n",
-                    getuname(), md5sum, tmp_labels, g_shared_mg_file_hash ? g_shared_mg_file_hash : no_hash_value, label_ip);
+                    getuname(), md5sum, tmp_labels, g_shared_mg_file_hash ? g_shared_mg_file_hash : "x", label_ip);
         } else {
             snprintf(tmp_msg, OS_MAXSTR - OS_HEADER_SIZE, "#!-%s\n%s%s%s\n",
-                    getuname(), tmp_labels, g_shared_mg_file_hash ? g_shared_mg_file_hash : no_hash_value, label_ip);
+                    getuname(), tmp_labels, g_shared_mg_file_hash ? g_shared_mg_file_hash : "x", label_ip);
         }
     }
     else {
         if ((File_DateofChange(AGENTCONFIG) > 0 ) &&
                 (OS_MD5_File(AGENTCONFIG, md5sum, OS_TEXT) == 0)) {
             snprintf(tmp_msg, OS_MAXSTR - OS_HEADER_SIZE, "#!-%s / %s\n%s%s\n",
-                    getuname(), md5sum, tmp_labels, g_shared_mg_file_hash ? g_shared_mg_file_hash : no_hash_value);
+                    getuname(), md5sum, tmp_labels, g_shared_mg_file_hash ? g_shared_mg_file_hash : "x");
         } else {
             snprintf(tmp_msg, OS_MAXSTR - OS_HEADER_SIZE, "#!-%s\n%s%s\n",
-                    getuname(), tmp_labels, g_shared_mg_file_hash ? g_shared_mg_file_hash : no_hash_value);
+                    getuname(), tmp_labels, g_shared_mg_file_hash ? g_shared_mg_file_hash : "x");
         }
     }
+    os_free(agent_ip);
 
     /* Send status message */
     mdebug2("Sending keep alive: %s", tmp_msg);

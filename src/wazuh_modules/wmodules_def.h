@@ -1,6 +1,6 @@
 /*
  * Wazuh Module Manager
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * November 11, 2020.
  *
  * This program is free software; you can redistribute it
@@ -15,20 +15,11 @@
 #include <pthread.h>
 #include "cJSON.h"
 
-#ifdef WIN32
-#include <winsock2.h>
-#include <windows.h>
-#endif
-
 #ifndef ARGV0
-#define ARGV0 "wazuh-modulesd"
+#define ARGV0 "hids-modulesd"
 #endif // ARGV0
 
-#ifdef WIN32
-typedef DWORD WINAPI (*wm_routine)(void*);  // Standard routine pointer
-#else
-typedef void* (*wm_routine)(void*);         // Standard routine pointer
-#endif
+typedef void* (*wm_routine)(void*);     // Standard routine pointer
 
 // Module context: this should be defined for every module
 

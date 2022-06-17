@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2021, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All rights reserved.
  *
@@ -10,7 +10,7 @@
 
 #ifdef ARGV0
 #undef ARGV0
-#define ARGV0 "wazuh-testrule"
+#define ARGV0 "hids-testrule"
 #endif
 
 #include "shared.h"
@@ -45,7 +45,7 @@ __attribute__((noreturn))
 static void help_logtest(char * home_path)
 {
     print_header();
-    print_out("\nSince Wazuh v4.1.0 this binary is deprecated. Use wazuh-logtest instead\n");
+    print_out("\nSince Hids v4.1.0 this binary is deprecated. Use hids-logtest instead\n");
     print_out("  %s: -[Vhdtva] [-c config] [-D dir] [-U rule:alert:decoder]", ARGV0);
     print_out("    -V          Version and license message");
     print_out("    -h          This help message");
@@ -149,7 +149,7 @@ int main(int argc, char **argv)
         merror_exit(CHDIR_ERROR, home_path, errno, strerror(errno));
     }
 
-    mdebug1(WAZUH_HOMEDIR, home_path);
+    mdebug1(HIDS_HOMEDIR, home_path);
 
     /* Read configuration file */
     if (GlobalConf(cfg) < 0) {
@@ -174,7 +174,7 @@ int main(int argc, char **argv)
     /* Get server hostname */
     memset(__shost, '\0', 512);
     if (gethostname(__shost, 512 - 1) != 0) {
-        strncpy(__shost, WAZUH_SERVER, 512 - 1);
+        strncpy(__shost, HIDS_SERVER, 512 - 1);
     } else {
         char *_ltmp;
 
@@ -484,7 +484,7 @@ int main(int argc, char **argv)
     minfo(STARTUP_MSG, (int)getpid());
 
     /* Inform that binary is deprecated */
-    print_out("\nSince Wazuh v4.1.0 this binary is deprecated. Use wazuh-logtest instead\n");
+    print_out("\nSince Hids v4.1.0 this binary is deprecated. Use hids-logtest instead\n");
 
     /* Going to main loop */
     OS_ReadMSG(ut_str);
@@ -649,7 +649,7 @@ void OS_ReadMSG(char *ut_str)
 
                 /* Check each rule */
                 else if (currently_rule = OS_CheckIfRuleMatch(lf, os_analysisd_last_events, &os_analysisd_cdblists,
-                         rulenode_pt, &rule_match, &os_analysisd_fts_list, &os_analysisd_fts_store, false, NULL), !currently_rule) {
+                         rulenode_pt, &rule_match, &os_analysisd_fts_list, &os_analysisd_fts_store, false), !currently_rule) {
                     continue;
                 }
 

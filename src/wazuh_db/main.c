@@ -1,6 +1,6 @@
 /*
  * Wazuh Database Daemon
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * January 03, 2018.
  *
  * This program is free software; you can redistribute it
@@ -83,6 +83,7 @@ int main(int argc, char ** argv)
 
     // Read internal options
 
+    wconfig.sock_queue_size = getDefine_Int("wazuh_db", "sock_queue_size", 1, 1024);
     wconfig.worker_pool_size = getDefine_Int("wazuh_db", "worker_pool_size", 1, 32);
     wconfig.commit_time_min = getDefine_Int("wazuh_db", "commit_time_min", 1, 3600);
     wconfig.commit_time_max = getDefine_Int("wazuh_db", "commit_time_max", 1, 3600);
@@ -97,7 +98,7 @@ int main(int argc, char ** argv)
         }
     }
 
-    mdebug1(WAZUH_HOMEDIR, home_path);
+    mdebug1(HIDS_HOMEDIR, home_path);
 
     if (test_config) {
         exit(0);
@@ -280,7 +281,7 @@ void * run_dealer(__attribute__((unused)) void * args) {
 
             continue;
         }
-        if (wnotify_add(notify_queue, peer, WO_READ) < 0) {
+        if (wnotify_add(notify_queue, peer) < 0) {
             merror("at run_dealer(): wnotify_add(%d): %s (%d)",
                     peer, strerror(errno), errno);
             goto error;
@@ -322,8 +323,8 @@ void * run_worker(__attribute__((unused)) void * args) {
             continue;
         }
 
-        peer = wnotify_get(notify_queue, 0, NULL);
-        if (wnotify_delete(notify_queue, peer, WO_READ) < 0) {
+        peer = wnotify_get(notify_queue, 0);
+        if (wnotify_delete(notify_queue, peer) < 0) {
             merror("at run_worker(): wnotify_delete(%d): %s (%d)",
                     peer, strerror(errno), errno);
         }
@@ -362,7 +363,7 @@ void * run_worker(__attribute__((unused)) void * args) {
             }
 
             *response = '\0';
-            wdb_parse(buffer, response, peer);
+            wdb_parse(buffer, response);
             if (length = strlen(response), length > 0) {
                 if (terminal && length < OS_MAXSTR - 1) {
                     response[length++] = '\n';
@@ -375,7 +376,7 @@ void * run_worker(__attribute__((unused)) void * args) {
             break;
         }
 
-        if (wnotify_add(notify_queue, peer, WO_READ) < 0) {
+        if (wnotify_add(notify_queue, peer) < 0) {
             merror("at run_worker(): wnotify_add(%d): %s (%d)",
                     peer, strerror(errno), errno);
         }

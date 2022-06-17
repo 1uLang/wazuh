@@ -1,6 +1,6 @@
 /*
  * Wazuh Module Manager
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * April 27, 2016.
  *
  * This program is free software; you can redistribute it
@@ -84,7 +84,7 @@ int wm_config() {
 
 #endif
 
-#if defined (__linux__) || (__MACH__) || defined (sun) || defined(FreeBSD) || defined(OpenBSD)
+#if defined (__linux__) || (__MACH__) || defined (sun)
     wmodule * control_module;
     control_module = wm_control_read();
     wm_add(control_module);
@@ -216,38 +216,6 @@ long int wm_read_http_size(char *header) {
     return size;
 }
 
-char* wm_read_http_header_element(char *header, char *regex) {
-    char *element = NULL;
-    OSRegex os_regex;
-
-    if (!header || !regex) {
-        merror("Missing parameters.");
-        return NULL;
-    }
-
-    if (!OSRegex_Compile(regex, &os_regex, OS_RETURN_SUBSTRING)) {
-        mwarn("Cannot compile regex.");
-        return NULL;
-    }
-
-    if (!OSRegex_Execute(header, &os_regex)) {
-        mdebug1("No match regex.");
-        OSRegex_FreePattern(&os_regex);
-        return NULL;
-    }
-
-    if (!os_regex.d_sub_strings[0]) {
-        mdebug1("No element was captured.");
-        OSRegex_FreePattern(&os_regex);
-        return NULL;
-    }
-
-    os_strdup(os_regex.d_sub_strings[0], element);
-
-    OSRegex_FreePattern(&os_regex);
-    return element;
-}
-
 void wm_free(wmodule * config) {
     wmodule *cur_module;
     wmodule *next_module;
@@ -338,25 +306,6 @@ int wm_sendmsg(int usec, int queue, const char *message, const char *locmsg, cha
 #endif
 
     if (SendMSG(queue, message, locmsg, loc) < 0) {
-        merror("At wm_sendmsg(): Unable to send message to queue: (%s)", strerror(errno));
-        return -1;
-    }
-
-    return 0;
-}
-
-// Send message to a queue waiting for a specific delay
-int wm_sendmsg_ex(int usec, int queue, const char *message, const char *locmsg, char loc, bool (*fn_prd)()) {
-
-#ifdef WIN32
-    int msec = usec / 1000;
-    Sleep(msec);
-#else
-    struct timeval timeout = {0, usec};
-    select(0, NULL, NULL, NULL, &timeout);
-#endif
-
-    if (SendMSGPredicated(queue, message, locmsg, loc, fn_prd) < 0) {
         merror("At wm_sendmsg(): Unable to send message to queue: (%s)", strerror(errno));
         return -1;
     }

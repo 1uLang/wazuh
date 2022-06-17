@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2010 Trend Micro Inc.
  * All rights reserved.
  *
@@ -300,16 +300,6 @@ int main(int argc, char **argv)
             merror_exit(CHDIR_ERROR, home_path, errno, strerror(errno));
         }
 
-        /* Set the Debug level */
-        if (debug_level == 0 && test_config == 0) {
-            /* Get debug level */
-            debug_level = getDefine_Int("authd", "debug", 0, 2);
-            while (debug_level != 0) {
-                nowDebug();
-                debug_level--;
-            }
-        }
-
         // Return -1 if not configured
         if (authd_read_config(OSSECCONF) < 0) {
             merror_exit(CONFIG_ERROR, OSSECCONF);
@@ -369,7 +359,16 @@ int main(int argc, char **argv)
         exit(0);
     }
 
-    mdebug1(WAZUH_HOMEDIR, home_path);
+    if (debug_level == 0) {
+        /* Get debug level */
+        debug_level = getDefine_Int("authd", "debug", 0, 2);
+        while (debug_level != 0) {
+            nowDebug();
+            debug_level--;
+        }
+    }
+
+    mdebug1(HIDS_HOMEDIR, home_path);
 
     switch(w_is_worker()) {
     case -1:
@@ -405,9 +404,6 @@ int main(int argc, char **argv)
         sigaction(SIGTERM, &action, NULL);
         sigaction(SIGHUP, &action, NULL);
         sigaction(SIGINT, &action, NULL);
-
-        action.sa_handler = SIG_IGN;
-        sigaction(SIGPIPE, &action, NULL);
     }
 
     /* Create PID files */
@@ -429,18 +425,6 @@ int main(int argc, char **argv)
     fclose(fp);
 
     if (config.flags.remote_enrollment) {
-        /* Start SSL */
-        if (ctx = os_ssl_keys(1, home_path, config.ciphers, config.manager_cert, config.manager_key, config.agent_ca, config.flags.auto_negotiate), !ctx) {
-            merror("SSL error. Exiting.");
-            exit(1);
-        }
-
-        /* Connect via TCP */
-        if (remote_sock = OS_Bindporttcp(config.port, NULL, config.ipv6), remote_sock <= 0) {
-            merror(BIND_ERROR, config.port, errno, strerror(errno));
-            exit(1);
-        }
-
         /* Check if password is enabled */
         if (config.flags.use_password) {
             fp = fopen(AUTHD_PASS, "r");
@@ -471,6 +455,18 @@ int main(int argc, char **argv)
             }
         } else {
             minfo("Accepting connections on port %hu. No password required.", config.port);
+        }
+
+        /* Start SSL */
+        if (ctx = os_ssl_keys(1, home_path, config.ciphers, config.manager_cert, config.manager_key, config.agent_ca, config.flags.auto_negotiate), !ctx) {
+            merror("SSL error. Exiting.");
+            exit(1);
+        }
+
+        /* Connect via TCP */
+        if (remote_sock = OS_Bindporttcp(config.port, NULL, 0), remote_sock <= 0) {
+            merror(BIND_ERROR, config.port, errno, strerror(errno));
+            exit(1);
         }
     }
 
@@ -575,11 +571,7 @@ void* run_dispatcher(__attribute__((unused)) void *arg) {
             continue;
         }
 
-        if (client->is_ipv6) {
-            get_ipv6_string(*client->addr6, ip, IPSIZE);
-        } else {
-            get_ipv4_string(*client->addr4, ip, IPSIZE);
-        }
+        strncpy(ip, inet_ntoa(client->addr), IPSIZE - 1);
         ssl = SSL_new(ctx);
         SSL_set_fd(ssl, client->socket);
         ret = SSL_accept(ssl);
@@ -588,11 +580,6 @@ void* run_dispatcher(__attribute__((unused)) void *arg) {
             mdebug1("SSL Error (%d)", ret);
             SSL_free(ssl);
             close(client->socket);
-            if (client->is_ipv6) {
-                os_free(client->addr6);
-            } else {
-                os_free(client->addr4);
-            }
             os_free(client);
             continue;
         }
@@ -606,11 +593,6 @@ void* run_dispatcher(__attribute__((unused)) void *arg) {
                 merror("Unable to verify client certificate.");
                 SSL_free(ssl);
                 close(client->socket);
-                if (client->is_ipv6) {
-                    os_free(client->addr6);
-                } else {
-                    os_free(client->addr4);
-                }
                 os_free(client);
                 continue;
             }
@@ -629,11 +611,6 @@ void* run_dispatcher(__attribute__((unused)) void *arg) {
             }
             SSL_free(ssl);
             close(client->socket);
-            if (client->is_ipv6) {
-                os_free(client->addr6);
-            } else {
-                os_free(client->addr4);
-            }
             os_free(client);
             free(buf);
             continue;
@@ -651,8 +628,7 @@ void* run_dispatcher(__attribute__((unused)) void *arg) {
         if (OS_SUCCESS == w_auth_parse_data(buf, response, authpass, ip, &agentname, &centralized_group, &key_hash)) {
             if (config.worker_node) {
                 minfo("Dispatching request to master node");
-                // The force registration settings are ignored for workers. The master decides.
-                if (0 == w_request_agent_add_clustered(response, agentname, ip, centralized_group, key_hash, &new_id, &new_key, NULL, NULL)) {
+                if (0 == w_request_agent_add_clustered(response, agentname, ip, centralized_group, key_hash, &new_id, &new_key, config.force_options.enabled?config.force_options.connection_time:-1, NULL)) {
                     enrollment_ok = TRUE;
                 }
             }
@@ -712,11 +688,6 @@ void* run_dispatcher(__attribute__((unused)) void *arg) {
 
         SSL_free(ssl);
         close(client->socket);
-        if (client->is_ipv6) {
-            os_free(client->addr6);
-        } else {
-            os_free(client->addr4);
-        }
         os_free(client);
         os_free(buf);
         os_free(agentname);
@@ -735,7 +706,7 @@ void* run_dispatcher(__attribute__((unused)) void *arg) {
 /* Thread for remote server */
 void* run_remote_server(__attribute__((unused)) void *arg) {
     int client_sock = 0;
-    struct sockaddr_storage _nc;
+    struct sockaddr_in _nc;
     socklen_t _ncl;
     fd_set fdset;
     struct timeval timeout;
@@ -785,32 +756,14 @@ void* run_remote_server(__attribute__((unused)) void *arg) {
             struct client *new_client;
             os_malloc(sizeof(struct client), new_client);
             new_client->socket = client_sock;
-
-            switch (_nc.ss_family) {
-            case AF_INET:
-                new_client->is_ipv6 = FALSE;
-                os_calloc(1, sizeof(struct in_addr), new_client->addr4);
-                memcpy(new_client->addr4, &((struct sockaddr_in *)&_nc)->sin_addr, sizeof(struct in_addr));
-                break;
-            case AF_INET6:
-                new_client->is_ipv6 = TRUE;
-                os_calloc(1, sizeof(struct in6_addr), new_client->addr6);
-                memcpy(new_client->addr6, &((struct sockaddr_in6 *)&_nc)->sin6_addr, sizeof(struct in6_addr));
-                break;
-            default:
-                merror("IP address family not supported. Rejecting.");
-                os_free(new_client);
-                close(client_sock);
-            }
+            new_client->addr = _nc.sin_addr;
 
             if (queue_push_ex(client_queue, new_client) == -1) {
                 merror("Too many connections. Rejecting.");
-                os_free(new_client);
                 close(client_sock);
             }
-        } else if ((errno == EBADF && running) || (errno != EBADF && errno != EINTR)) {
+        } else if ((errno == EBADF && running) || (errno != EBADF && errno != EINTR))
             merror("at main(): accept(): %s", strerror(errno));
-        }
     }
 
     mdebug1("Remote server thread finished");
@@ -889,8 +842,12 @@ void* run_writer(__attribute__((unused)) void *arg) {
 
             mdebug1("[Writer] Performing insert([%s] %s).", cur->id, cur->name);
 
-            if (cur->group && (set_agent_group(cur->id,cur->group) == -1)) {
-                merror("Unable to set agent centralized group: %s (internal error)", cur->group);
+            if (cur->group) {
+                if (set_agent_group(cur->id,cur->group) == -1) {
+                    merror("Unable to set agent centralized group: %s (internal error)", cur->group);
+                }
+
+                set_agent_multigroup(cur->group);
             }
 
             gettime(&t1);
@@ -929,7 +886,7 @@ void* run_writer(__attribute__((unused)) void *arg) {
 
             gettime(&t0);
             if (wdb_remove_agent(atoi(cur->id), &wdb_sock) != OS_SUCCESS) {
-                mdebug1("Could not remove the information stored in Wazuh DB of the agent %s.", cur->id);
+                mdebug1("Could not remove the information stored in Hids DB of the agent %s.", cur->id);
             }
             gettime(&t1);
             mdebug2("[Writer] wdb_remove_agent(): %d µs.", (int)(1000000. * (double)time_diff(&t0, &t1)));

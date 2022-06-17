@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * November, 2020.
  *
  * This program is free software; you can redistribute it
@@ -312,7 +312,7 @@ void test_monitor_agents_alert_agent_info_fail() {
     expect_value(__wrap_wdb_get_agent_info, id, 1);
     will_return(__wrap_wdb_get_agent_info, j_agent_info);
 
-    expect_string(__wrap__mdebug1, formatted_msg, "Unable to retrieve agent's '1' data from Wazuh DB");
+    expect_string(__wrap__mdebug1, formatted_msg, "Unable to retrieve agent's '1' data from Hids DB");
     expect_value(__wrap_OSHash_Delete, self, agents_to_alert_hash);
     expect_value(__wrap_OSHash_Delete, key, "1");
     will_return(__wrap_OSHash_Delete, 2);
@@ -422,7 +422,7 @@ void test_monitor_agents_deletion_agent_info_fail() {
     expect_value(__wrap_wdb_get_agent_info, id, 13);
     will_return(__wrap_wdb_get_agent_info, NULL);
 
-    expect_string(__wrap__mdebug1, formatted_msg, "Unable to retrieve agent's '13' data from Wazuh DB");
+    expect_string(__wrap__mdebug1, formatted_msg, "Unable to retrieve agent's '13' data from Hids DB");
     expect_value(__wrap_OSHash_Delete, self, agents_to_alert_hash);
     expect_string(__wrap_OSHash_Delete, key, "13");
     will_return(__wrap_OSHash_Delete, 2);

@@ -4,11 +4,11 @@ import asyncio
 import itertools
 import logging
 import os
+import random
 import ssl
+import time
 import traceback
-from time import perf_counter
 from typing import Tuple, Dict
-from uuid import uuid4
 
 import uvloop
 
@@ -41,11 +41,11 @@ class AbstractServerHandler(c_common.Handler):
         tag : str
             Log tag.
         """
-        super().__init__(fernet_key=fernet_key, logger=logger, tag=f"{tag} {str(uuid4().hex[:8])}",
+        super().__init__(fernet_key=fernet_key, logger=logger, tag=f"{tag} {random.randint(0, 1000)}",
                          cluster_items=cluster_items)
         self.server = server
         self.loop = loop
-        self.last_keepalive = utils.get_utc_now().timestamp()
+        self.last_keepalive = time.time()
         self.tag = tag
         context_tag.set(self.tag)
         self.name = None
@@ -114,7 +114,7 @@ class AbstractServerHandler(c_common.Handler):
         data : bytes
             Response message.
         """
-        self.last_keepalive = utils.get_utc_now().timestamp()
+        self.last_keepalive = time.time()
         return b'ok-m ', data
 
     def hello(self, data: bytes) -> Tuple[bytes, bytes]:
@@ -160,7 +160,7 @@ class AbstractServerHandler(c_common.Handler):
             Result message.
         """
         if command == b'ok-c':
-            return b"Successful response from client: " + payload
+            return b"Sucessful response from client: " + payload
         else:
             return super().process_response(command, payload)
 
@@ -176,7 +176,7 @@ class AbstractServerHandler(c_common.Handler):
         """
         if self.name:
             if exc is None:
-                self.logger.debug(f"Disconnected {self.name}.")
+                self.logger.debug("Disconnected.".format(self.name))
             else:
                 self.logger.error(f"Error during connection with '{self.name}': {exc}.\n"
                                   f"{''.join(traceback.format_tb(exc.__traceback__))}")
@@ -223,7 +223,7 @@ class AbstractServer:
         self.cluster_items = cluster_items
         self.enable_ssl = enable_ssl
         self.tag = tag
-        self.logger = logging.getLogger('wazuh') if not logger else logger
+        self.logger = logging.getLogger('hids') if not logger else logger
         # logging tag
         context_tag.set(self.tag)
         self.tasks = [self.check_clients_keepalive]
@@ -257,7 +257,7 @@ class AbstractServer:
         task_logger.addFilter(ClusterFilter(tag=self.tag, subtag=task_tag))
         return task_logger
 
-    def get_connected_nodes(self, filter_node: str = None, offset: int = 0, limit: int = common.DATABASE_LIMIT,
+    def get_connected_nodes(self, filter_node: str = None, offset: int = 0, limit: int = common.database_limit,
                             sort: Dict = None, search: Dict = None, select: Dict = None,
                             filter_type: str = 'all') -> Dict:
         """Get all connected nodes, including the master node.
@@ -306,7 +306,7 @@ class AbstractServer:
             select = default_fields
         else:
             if not set(select).issubset(default_fields):
-                raise exception.WazuhError(1724, extra_message=', '.join(set(select) - default_fields),
+                raise exception.WazuhError(code=1724, extra_message=', '.join(set(select) - default_fields),
                                            extra_remediation=', '.join(default_fields))
 
         if filter_type != 'all' and filter_type not in {'worker', 'master'}:
@@ -339,7 +339,7 @@ class AbstractServer:
         keep_alive_logger = self.setup_task_logger("Keep alive")
         while True:
             keep_alive_logger.debug("Calculating.")
-            curr_timestamp = utils.get_utc_now().timestamp()
+            curr_timestamp = time.time()
             # Iterate all clients and close the connection when their last keepalive is older than allowed.
             for client_name, client in self.clients.copy().items():
                 if curr_timestamp - client.last_keepalive > self.cluster_items['intervals']['master']['max_allowed_time_without_keepalive']:
@@ -361,21 +361,19 @@ class AbstractServer:
         """Send a big message to all clients every 3 seconds."""
         while True:
             for client_name, client in self.clients.items():
-                before = perf_counter()
+                before = time.time()
                 response = await client.send_request(b'echo', b'a' * self.performance)
-                after = perf_counter()
-                self.logger.info(f"Received size: {len(response)} // Time: {after - before}")
+                self.logger.info(f"Received size: {len(response)} // Time: {time.time() - before}")
             await asyncio.sleep(3)
 
     async def concurrency_test(self):
         """Send lots of messages in a row to all clients. Then rests for 10 seconds."""
         while True:
-            before = perf_counter()
+            before = time.time()
             for i in range(self.concurrency):
                 for client_name, client in self.clients.items():
                     await client.send_request(b'echo', f'concurrency {i} client {client_name}'.encode())
-            after = perf_counter()
-            self.logger.info(f"Time sending {self.concurrency} messages: {after - before}")
+            self.logger.info(f"Time sending {self.concurrency} messages: {time.time() - before}")
             await asyncio.sleep(10)
 
     async def start(self):
@@ -387,8 +385,8 @@ class AbstractServer:
 
         if self.enable_ssl:
             ssl_context = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
-            ssl_context.load_cert_chain(certfile=os.path.join(common.WAZUH_PATH, 'etc', 'sslmanager.cert'),
-                                        keyfile=os.path.join(common.WAZUH_PATH, 'etc', 'sslmanager.key'))
+            ssl_context.load_cert_chain(certfile=os.path.join(common.wazuh_path, 'etc', 'sslmanager.cert'),
+                                        keyfile=os.path.join(common.wazuh_path, 'etc', 'sslmanager.key'))
         else:
             ssl_context = None
 

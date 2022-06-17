@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All right reserved.
  *
@@ -95,14 +95,14 @@ void w_get_initial_queues_size();
 void w_init_queues();
 
 
-#define WAZUH_SERVER    "wazuh-server"
+#define HIDS_SERVER    "hids-server"
 #define MAX_DECODER_ORDER_SIZE  1024
 
 extern OSHash *fim_agentinfo;
 extern int num_rule_matching_threads;
 
-#define FIM_MAX_WAZUH_DB_ATTEMPS 5
-#define SYS_MAX_WAZUH_DB_ATTEMPS 5
-#define PM_MAX_WAZUH_DB_ATTEMPS 5
+#define FIM_MAX_HIDS_DB_ATTEMPS 5
+#define SYS_MAX_HIDS_DB_ATTEMPS 5
+#define PM_MAX_HIDS_DB_ATTEMPS 5
 
 #endif /* LOGAUDIT_H */

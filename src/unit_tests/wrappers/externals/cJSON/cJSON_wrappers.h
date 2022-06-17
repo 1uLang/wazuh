@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it
@@ -12,12 +12,6 @@
 #define CJSON_WRAPPERS_H
 
 #include <external/cJSON/cJSON.h>
-
-#ifdef WIN32
-#define WSTD_CALL __stdcall
-#else
-#define WSTD_CALL
-#endif
 
 cJSON_bool __wrap_cJSON_AddItemToArray(cJSON *array, cJSON *item);
 
@@ -61,8 +55,6 @@ cJSON * __wrap_cJSON_CreateObject(void);
 
 cJSON * __wrap_cJSON_CreateNumber(double num);
 
-extern cJSON * __real_cJSON_CreateNumber(double num);
-
 cJSON * __wrap_cJSON_CreateString(const char *string);
 
 extern cJSON * __real_cJSON_CreateString(const char *string);
@@ -71,19 +63,25 @@ void __wrap_cJSON_Delete(cJSON *item);
 
 extern void __real_cJSON_Delete(cJSON *item);
 
-cJSON * WSTD_CALL __wrap_cJSON_GetObjectItem(const cJSON * const object, const char * const string);
+cJSON * __wrap_cJSON_GetObjectItem(const cJSON * const object, const char * const string);
+
+void expect_cJSON_GetObjectItem_call(cJSON *object);
 
 extern cJSON * __real_cJSON_GetObjectItem(const cJSON * const object, const char * const string);
 
-char* WSTD_CALL __wrap_cJSON_GetStringValue(cJSON * item);
+char* __wrap_cJSON_GetStringValue(cJSON * item);
+
+void expect_cJSON_GetStringValue_call(char *str);
 
 cJSON_bool __wrap_cJSON_IsNumber(cJSON * item);
 
+void expect_cJSON_IsNumber_call(int ret);
+
 cJSON_bool __wrap_cJSON_IsObject(cJSON * item);
 
-cJSON * __wrap_cJSON_Parse(const char *value);
+void expect_cJSON_IsObject_call(int ret);
 
-cJSON * __wrap_cJSON_ParseWithOpts(const char *value, const char **return_parse_end, cJSON_bool require_null_terminated);
+cJSON * __wrap_cJSON_Parse(const char *value);
 
 extern cJSON * __real_cJSON_Parse(const char *value);
 

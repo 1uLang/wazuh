@@ -1,6 +1,6 @@
 /*
  * Wazuh Module for SQLite database syncing
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * November 29, 2016
  *
  * This program is free software; you can redistribute it
@@ -127,9 +127,6 @@ void* wm_database_main(wm_database *data) {
 
         wm_inotify_setup(data);
 
-#ifndef LOCAL
-        wm_clean_dangling_groups();
-#endif
         while (1) {
             path = wm_inotify_pop();
 
@@ -254,7 +251,7 @@ void wm_check_agents() {
 void wm_sync_agents() {
     unsigned int i;
     char * group;
-    char cidr[IPSIZE + 1];
+    char cidr[20];
     keystore keys = KEYSTORE_INITIALIZER;
     keyentry *entry;
     int *agents;
@@ -287,7 +284,7 @@ void wm_sync_agents() {
             *group = 0;
         }
 
-        if (wdb_insert_agent(id, entry->name, NULL, OS_CIDRtoStr(entry->ip, cidr, IPSIZE) ?
+        if (wdb_insert_agent(id, entry->name, NULL, OS_CIDRtoStr(entry->ip, cidr, 20) ?
                              entry->ip->ip : cidr, entry->raw_key, *group ? group : NULL,1, &wdb_wmdb_sock)) {
             // The agent already exists, update group only.
             wm_sync_agent_group(id, entry->id);
@@ -611,10 +608,10 @@ wmodule* wm_database_read() {
     wm_database data;
     wmodule *module = NULL;
 
-    data.sync_agents = getDefine_Int("wazuh_database", "sync_agents", 0, 1);
-    data.real_time = getDefine_Int("wazuh_database", "real_time", 0, 1);
-    data.interval = getDefine_Int("wazuh_database", "interval", 0, 86400);
-    data.max_queued_events = getDefine_Int("wazuh_database", "max_queued_events", 0, INT_MAX);
+    data.sync_agents = getDefine_Int("hids_database", "sync_agents", 0, 1);
+    data.real_time = getDefine_Int("hids_database", "real_time", 0, 1);
+    data.interval = getDefine_Int("hids_database", "interval", 0, 86400);
+    data.max_queued_events = getDefine_Int("hids_database", "max_queued_events", 0, INT_MAX);
 
     if (data.sync_agents) {
         os_calloc(1, sizeof(wmodule), module);

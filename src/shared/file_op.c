@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All rights reserved.
  *
@@ -16,7 +16,7 @@
 
 #include "../external/zlib/zlib.h"
 
-#ifdef WAZUH_UNIT_TESTING
+#ifdef HIDS_UNIT_TESTING
 #ifdef WIN32
 #include "unit_tests/wrappers/windows/libc/stdio_wrappers.h"
 #include "unit_tests/wrappers/windows/fileapi_wrappers.h"
@@ -381,10 +381,6 @@
 #endif
 #ifndef PRODUCT_STORAGE_WORKGROUP_SERVER_CORE_C
 #define PRODUCT_STORAGE_WORKGROUP_SERVER_CORE_C "Storage Server Workgroup (core installation) "
-#endif
-
-#ifndef FIRST_BUILD_WINDOWS_11
-#define FIRST_BUILD_WINDOWS_11 22000
 #endif
 
 #define mkstemp(x) 0
@@ -1877,7 +1873,6 @@ const char *getuname()
                 TCHAR wincomp[size];
                 DWORD winMajor = 0;
                 DWORD winMinor = 0;
-                DWORD buildRevision = 0;
                 DWORD dwCount = size;
                 unsigned long type=REG_DWORD;
 
@@ -1901,23 +1896,7 @@ const char *getuname()
                             snprintf(__wp, 63, " [Ver: %d.%d]", (unsigned int)winMajor, (unsigned int)winMinor);
                         }
                         else {
-                            dwCount = size;
-                            dwRet = RegQueryValueEx(RegistryKey, TEXT("UBR"), NULL, &type, (LPBYTE)&buildRevision, &dwCount);
-                            if (dwRet != ERROR_SUCCESS) {
-                                snprintf(__wp,  sizeof(__wp), " [Ver: %d.%d.%s]", (unsigned int)winMajor, (unsigned int)winMinor, wincomp);
-                            }
-                            else {
-                                snprintf(__wp,  sizeof(__wp), " [Ver: %d.%d.%s.%lu]", (unsigned int)winMajor, (unsigned int)winMinor, wincomp, buildRevision);
-                            }
-
-                            char *endptr = NULL, *osVersion = NULL;
-                            const int buildNumber = (int) strtol(wincomp, &endptr, 10);
-
-                            if ('\0' == *endptr && buildNumber >= FIRST_BUILD_WINDOWS_11) {
-                                if (osVersion = strstr(ret, "Microsoft Windows 10"), osVersion != NULL) {
-                                    memcpy(osVersion, "Microsoft Windows 11", strlen("Microsoft Windows 11"));
-                                }
-                            }
+                            snprintf(__wp, 63, " [Ver: %d.%d.%s]", (unsigned int)winMajor, (unsigned int)winMinor, wincomp);
                         }
                     }
                     RegCloseKey(RegistryKey);
@@ -1937,17 +1916,10 @@ const char *getuname()
                             snprintf(__wp, 63, " [Ver: 6.2]");
                         }
                         else {
-                            dwCount = size;
-                            dwRet = RegQueryValueEx(RegistryKey, TEXT("UBR"), NULL, &type, (LPBYTE)&buildRevision, &dwCount);
-                            if (dwRet != ERROR_SUCCESS) {
-                                snprintf(__wp, sizeof(__wp), " [Ver: %s.%s]", winver,wincomp);
-                            }
-                            else {
-                                snprintf(__wp, sizeof(__wp), " [Ver: %s.%s.%lu]", winver, wincomp, buildRevision);
-                            }
+                            snprintf(__wp, 63, " [Ver: %s.%s]", winver,wincomp);
                         }
+                        RegCloseKey(RegistryKey);
                     }
-                    RegCloseKey(RegistryKey);
                 }
 
                 strncat(ret, __wp, ret_size - 1);
@@ -2072,109 +2044,6 @@ FILE * w_fopen_r(const char *file, const char * mode, BY_HANDLE_FILE_INFORMATION
     }
 
     return fp;
-}
-
-char **expand_win32_wildcards(const char *path) {
-    WIN32_FIND_DATA FindFileData;
-    HANDLE hFind;
-    char **pending_expand = NULL;
-    char **expanded_paths = NULL;
-    char *pattern = NULL;
-    char *next_glob = NULL;
-    char *parent_path = NULL;
-    int pending_expand_index = 0;
-    int expanded_index = 0;
-    size_t glob_pos = 0;
-
-    os_calloc(2, sizeof(char *), pending_expand);
-    os_strdup(path, pending_expand[0]);
-    // Loop until there is not any directory to expand.
-    while(true) {
-        pattern = pending_expand[0];
-
-        if (pattern == NULL) {
-            break;
-        }
-
-        glob_pos = strcspn(pattern, "*?");
-        if (glob_pos == strlen(pattern)) {
-            // If there are no more patterns, exit
-            expanded_paths = pending_expand;
-            break;
-        }
-
-        os_calloc(2, sizeof(char *), expanded_paths);
-
-        for (pending_expand_index = 0; pattern != NULL; pattern = pending_expand[++pending_expand_index]) {
-            glob_pos = strcspn(pattern, "*?");
-            next_glob = strchr(pattern + glob_pos, PATH_SEP);
-
-            // Find the next regex to be appended in case there is an expanded folder.
-            if (next_glob != NULL) {
-                *next_glob = '\0';
-                next_glob++;
-            }
-            os_strdup(pattern, parent_path);
-            char *look_back = strrchr(parent_path, PATH_SEP);
-
-            if (look_back) {
-                *look_back = '\0';
-            }
-
-            hFind = FindFirstFile(pattern, &FindFileData);
-            if (hFind == INVALID_HANDLE_VALUE) {
-                long unsigned errcode = GetLastError();
-                if (errcode == 2) {
-                    mdebug2("No file/folder that matches %s.", pattern);
-                } else {
-                    mdebug2("FindFirstFile failed (%lu) - '%s'\n", errcode, pattern);
-                }
-
-                os_free(pattern);
-                os_free(parent_path);
-                next_glob = NULL;
-                continue;
-            }
-            do {
-                if (strcmp(FindFileData.cFileName, ".") == 0 || strcmp(FindFileData.cFileName, "..") == 0) {
-                    continue;
-                }
-
-                if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) {
-                    continue;
-                }
-
-                if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0 && next_glob != NULL) {
-                    continue;
-                }
-
-                os_strdup(parent_path, expanded_paths[expanded_index]);
-                wm_strcat(&expanded_paths[expanded_index], FindFileData.cFileName, PATH_SEP);
-
-                if (next_glob != NULL) {
-                    wm_strcat(&expanded_paths[expanded_index], next_glob, PATH_SEP);
-                }
-
-                os_realloc(expanded_paths, (expanded_index + 2) * sizeof(char *), expanded_paths);
-                expanded_index++;
-                expanded_paths[expanded_index] = NULL;
-
-            } while(FindNextFile(hFind, &FindFileData));
-
-            FindClose(hFind);
-            // Now, free the memory, as the path that needed to be expanded is no longer needed and it's expansion is
-            // saved in expanded_paths vector.
-            os_free(pattern);
-            os_free(parent_path);
-            next_glob = NULL;
-        }
-
-        expanded_index = 0;
-        os_free(pending_expand);
-        pending_expand = expanded_paths;
-    }
-
-    return expanded_paths;
 }
 
 #endif /* WIN32 */
@@ -2617,9 +2486,6 @@ cJSON* getunameJSON()
         if (read_info->os_release){
             cJSON_AddStringToObject(root, "os_release", read_info->os_release);
         }
-        if (read_info->os_display_version){
-            cJSON_AddStringToObject(root, "os_display_version", read_info->os_display_version);
-        }
 
         free_osinfo(read_info);
         return root;
@@ -2788,6 +2654,53 @@ FILE * wfopen(const char * pathname, const char * mode) {
 #else
     return fopen(pathname, mode);
 #endif
+}
+
+
+int w_remove_line_from_file(char *file, int line){
+    FILE *fp_src;
+    FILE *fp_dst;
+    size_t count_w;
+    char buffer[OS_SIZE_65536 + 1];
+    char destination[PATH_MAX] = {0};
+
+    fp_src = fopen(file, "r");
+
+    if (!fp_src) {
+        merror("At remove_line_from_file(): Couldn't open file '%s'", file);
+        return -1;
+    }
+
+    snprintf(destination, PATH_MAX, "%s.back", file);
+
+    /* Write to file */
+    fp_dst = fopen(destination, "w");
+
+    if (!fp_dst) {
+        mdebug1("At remove_line_from_file(): Couldn't open file '%s'", destination);
+        fclose(fp_src);
+        return -1;
+    }
+
+    /* Write message to the destination file */
+    int i = 0;
+    while (fgets(buffer, OS_SIZE_65536 + 1, fp_src) != NULL) {
+
+        if(i != line){
+            count_w = fwrite(buffer, 1, strlen(buffer) , fp_dst);
+
+            if (count_w != strlen(buffer) || ferror(fp_dst)) {
+                merror("At remove_line_from_file(): Couldn't write file '%s'", destination);
+                break;
+            }
+        }
+        i++;
+    }
+
+    fclose(fp_src);
+    fclose(fp_dst);
+
+    return w_copy_file(destination, file, 'w', NULL, 0);
 }
 
 
@@ -3471,7 +3384,7 @@ char *w_homedir(char *arg) {
     } else {
         // The path was not found so read WAZUH_HOME env var
         char * home_env = NULL;
-        if (home_env = getenv(WAZUH_HOME_ENV), home_env) {
+        if (home_env = getenv(HIDS_HOME_ENV), home_env) {
             snprintf(buff, PATH_MAX, "%s", home_env);
         }
     }

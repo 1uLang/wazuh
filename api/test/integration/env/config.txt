@@ -7,16 +7,16 @@
 
 | Agent | Name          | Groups                       | Status          |
 |-------|---------------|------------------------------|-----------------|
-| 000   | wazuh-master  |                              | active          |
-| 001   | wazuh-agent1  | default,group1               | active          |
-| 002   | wazuh-agent2  | default,group2               | active          |
-| 003   | wazuh-agent3  | default,group3               | active          |
-| 004   | wazuh-agent4  | default                      | active          |
-| 005   | wazuh-agent5  | default,group1,group2        | active          |
-| 006   | wazuh-agent6  | default,group2,group3        | active          |
-| 007   | wazuh-agent7  | default,group1,group3        | active          |
-| 008   | wazuh-agent8  | default,group1,group2,group3 | active          |
-| 009   | wazuh-agent9  | default,group1               | disconnected    |
-| 010   | wazuh-agent10 | default,group2               | disconnected    |
-| 011   | wazuh-agent11 |                              | never_connected |
-| 012   | wazuh-agent12 |                              | never_connected |
+| 000   | hids-master  |                              | active          |
+| 001   | hids-agent1  | default,group1               | active          |
+| 002   | hids-agent2  | default,group2               | active          |
+| 003   | hids-agent3  | default,group3               | active          |
+| 004   | hids-agent4  | default                      | active          |
+| 005   | hids-agent5  | default,group1,group2        | active          |
+| 006   | hids-agent6  | default,group2,group3        | active          |
+| 007   | hids-agent7  | default,group1,group3        | active          |
+| 008   | hids-agent8  | default,group1,group2,group3 | active          |
+| 009   | hids-agent9  | default,group1               | disconnected    |
+| 010   | hids-agent10 | default,group2               | disconnected    |
+| 011   | hids-agent11 |                              | never_connected |
+| 012   | hids-agent12 |                              | never_connected |    

@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All rights reserved.
  *
@@ -83,7 +83,6 @@ void fim_initialize() {
         merror_exit(FIM_CRITICAL_DATA_CREATE, "sqlite3 db");
     }
 
-    w_rwlock_init(&syscheck.directories_lock, NULL);
     w_mutex_init(&syscheck.fim_entry_mutex, NULL);
     w_mutex_init(&syscheck.fim_scan_mutex, NULL);
     w_mutex_init(&syscheck.fim_realtime_mutex, NULL);
@@ -95,12 +94,11 @@ void fim_initialize() {
 
 #ifdef WIN32
 /* syscheck main for Windows */
-int Start_win32_Syscheck() {
+int Start_win32_Syscheck()
+{
     int debug_level = 0;
     int r = 0;
     char *cfg = OSSECCONF;
-    OSListNode *node_it;
-
     /* Read internal options */
     read_internal(debug_level);
 
@@ -115,14 +113,14 @@ int Start_win32_Syscheck() {
         syscheck.disabled = 1;
     } else if ((r == 1) || (syscheck.disabled == 1)) {
         /* Disabled */
-        minfo(FIM_DIRECTORY_NOPROVIDED);
-
-        // Free directories list
-        OSList_foreach(node_it, syscheck.directories) {
-            free_directory(node_it->data);
-            node_it->data = NULL;
+        if (!syscheck.dir) {
+            minfo(FIM_DIRECTORY_NOPROVIDED);
+            dump_syscheck_file(&syscheck, "", 0, NULL, 0, NULL, NULL, -1);
+        } else if (!syscheck.dir[0]) {
+            minfo(FIM_DIRECTORY_NOPROVIDED);
         }
-        OSList_CleanNodes(syscheck.directories);
+
+        os_free(syscheck.dir[0]);
 
         if (!syscheck.ignore) {
             os_calloc(1, sizeof(char *), syscheck.ignore);
@@ -146,20 +144,17 @@ int Start_win32_Syscheck() {
     }
 
     if (!syscheck.disabled) {
-        directory_t *dir_it;
-        OSListNode *node_it;
 #ifndef WIN_WHODATA
         int whodata_notification = 0;
         /* Remove whodata attributes */
-        OSList_foreach(node_it, syscheck.directories) {
-            dir_it = node_it->data;
-            if (dir_it->options & WHODATA_ACTIVE) {
+        for (r = 0; syscheck.dir[r]; r++) {
+            if (syscheck.opts[r] & WHODATA_ACTIVE) {
                 if (!whodata_notification) {
                     whodata_notification = 1;
                     minfo(FIM_REALTIME_INCOMPATIBLE);
                 }
-                dir_it->options &= ~WHODATA_ACTIVE;
-                dir_it->options |= REALTIME_ACTIVE;
+                syscheck.opts[r] &= ~WHODATA_ACTIVE;
+                syscheck.opts[r] |= REALTIME_ACTIVE;
             }
         }
 #endif
@@ -173,26 +168,28 @@ int Start_win32_Syscheck() {
                   syscheck.registry[r].arch == ARCH_64BIT ? " [x64]" : "",
                   syscheck_opts2str(optstr, sizeof(optstr), syscheck.registry[r].opts));
             if (syscheck.file_size_enabled){
-                mdebug1(FIM_DIFF_FILE_SIZE_LIMIT, syscheck.registry[r].diff_size_limit, syscheck.registry[r].entry);
+                minfo(FIM_DIFF_FILE_SIZE_LIMIT, syscheck.registry[r].diff_size_limit, syscheck.registry[r].entry);
             }
             r++;
         }
 
         /* Print directories to be monitored */
-        OSList_foreach(node_it, syscheck.directories) {
-            dir_it = node_it->data;
+        r = 0;
+        while (syscheck.dir[r] != NULL) {
             char optstr[ 1024 ];
 
-            minfo(FIM_MONITORING_DIRECTORY, dir_it->path, syscheck_opts2str(optstr, sizeof(optstr), dir_it->options));
+            minfo(FIM_MONITORING_DIRECTORY, syscheck.dir[r], syscheck_opts2str(optstr, sizeof( optstr ), syscheck.opts[r]));
 
-            if (dir_it->tag != NULL) {
-                mdebug2(FIM_TAG_ADDED, dir_it->tag, dir_it->path);
+            if (syscheck.tag && syscheck.tag[r] != NULL) {
+                mdebug1(FIM_TAG_ADDED, syscheck.tag[r], syscheck.dir[r]);
             }
 
             // Print diff file size limit
-            if ((dir_it->options & CHECK_SEECHANGES) && syscheck.file_size_enabled) {
-                mdebug2(FIM_DIFF_FILE_SIZE_LIMIT, dir_it->diff_size_limit, dir_it->path);
+            if ((syscheck.opts[r] & CHECK_SEECHANGES) && syscheck.file_size_enabled) {
+                mdebug2(FIM_DIFF_FILE_SIZE_LIMIT, syscheck.diff_size_limit[r], syscheck.dir[r]);
             }
+
+            r++;
         }
 
         if (!syscheck.file_size_enabled) {
@@ -257,24 +254,6 @@ int Start_win32_Syscheck() {
 
         /* Start up message */
         minfo(STARTUP_MSG, getpid());
-        OSList_foreach(node_it, syscheck.directories) {
-            dir_it = node_it->data;
-            if (dir_it->options & REALTIME_ACTIVE) {
-                realtime_start();
-                break;
-            }
-        }
-
-        if (syscheck.realtime == NULL) {
-            // Check if a wildcard might require realtime later
-            OSList_foreach(node_it, syscheck.wildcards) {
-                dir_it = node_it->data;
-                if (dir_it->options & REALTIME_ACTIVE) {
-                    realtime_start();
-                    break;
-                }
-            }
-        }
     }
 
     /* Some sync time */

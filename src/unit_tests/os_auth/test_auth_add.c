@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  *
  * This program is free software; you can redistribute it
  * and/or modify it under the terms of the GNU General Public
@@ -23,11 +23,11 @@
 
 void keys_init(keystore *keys, key_mode_t key_mode, int save_removed) {
     /* Initialize hashes */
-    keys->keytree_id = rbtree_init();
-    keys->keytree_ip = rbtree_init();
-    keys->keytree_sock = rbtree_init();
+    keys->keyhash_id = OSHash_Create();
+    keys->keyhash_ip = OSHash_Create();
+    keys->keyhash_sock = OSHash_Create();
 
-    if (!(keys->keytree_id && keys->keytree_ip && keys->keytree_sock)) {
+    if (!(keys->keyhash_id && keys->keyhash_ip && keys->keyhash_sock)) {
         merror_exit(MEM_ERROR, errno, strerror(errno));
     }
 
@@ -95,11 +95,6 @@ static int teardown_add_agent(void **state) {
 static void test_w_auth_add_agent(void **state) {
     char response[2048] = {0};
     w_err_t err;
-
-    expect_any(__wrap_OS_IsValidIP, ip_address);
-    expect_any(__wrap_OS_IsValidIP, final_ip);
-    will_return(__wrap_OS_IsValidIP, -1);
-
     /* Successful new agent */
     err = w_auth_add_agent(response, "192.0.0.0", "agent1", NULL, &new_id, &new_key);
     assert_int_equal(err, OS_SUCCESS);
@@ -111,11 +106,6 @@ static void test_w_auth_add_agent(void **state) {
 static void test_w_auth_add_agent_with_group(void **state) {
     char response[2048] = {0};
     w_err_t err;
-
-    expect_any(__wrap_OS_IsValidIP, ip_address);
-    expect_any(__wrap_OS_IsValidIP, final_ip);
-    will_return(__wrap_OS_IsValidIP, -1);
-
     /* Successful new agent with group */
     err = w_auth_add_agent(response, "192.0.0.1", "agent2", "Group1,Group2,Group3", &new_id, &new_key);
     assert_int_equal(err, OS_SUCCESS);

@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All right reserved.
  *
@@ -29,7 +29,7 @@ static void help_remoted(char *home_path)
     print_out("                to increase the debug level.");
     print_out("    -t          Test configuration");
     print_out("    -f          Run in foreground");
-    print_out("    -u <user>   User to run as (default: %s)", USER);
+    print_out("    -u <user>   User to run as (default: %s)", REMUSER);
     print_out("    -g <group>  Group to run as (default: %s)", GROUPGLOBAL);
     print_out("    -c <config> Configuration file to use (default: %s)", OSSECCONF);
     print_out("    -D <dir>    Directory to chroot into (default: %s)", home_path);
@@ -55,7 +55,7 @@ int main(int argc, char **argv)
     char * home_path = w_homedir(argv[0]);
 
     const char *cfg = OSSECCONF;
-    const char *user = USER;
+    const char *user = REMUSER;
     const char *group = GROUPGLOBAL;
 
     while ((c = getopt(argc, argv, "Vdthfu:g:c:D:m")) != -1) {
@@ -127,7 +127,7 @@ int main(int argc, char **argv)
         }
     }
 
-    mdebug1(WAZUH_HOMEDIR, home_path);
+    mdebug1(HIDS_HOMEDIR, home_path);
 
     /* Return 0 if not configured */
     if (RemotedConfig(cfg, &logr) < 0) {

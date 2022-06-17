@@ -3,7 +3,7 @@
  * @brief Definition of FIM database library.
  * @date 2019-08-28
  *
- * @copyright Copyright (C) 2015 Wazuh, Inc.
+ * @copyright Copyright (c) 2020 Wazuh, Inc.
  */
 
 #ifndef FIM_DB_COMMON_H
@@ -21,7 +21,7 @@
 
 #define FIM_DB_MEMORY_PATH  ":memory:"
 
-#ifndef WAZUH_UNIT_TESTING
+#ifndef HIDS_UNIT_TESTING
 #define FIM_DB_DISK_PATH    "queue/fim/db/fim.db"
 #define FIM_DB_TMPDIR       "tmp/"
 #else
@@ -141,6 +141,18 @@ void fim_db_clean_file(fim_tmp_file **file, int storage);
  * @return FIM entry struct on success, NULL on error.
  */
 fim_entry *fim_db_get_entry_from_sync_msg(fdb_t *fim_sql, fim_type type, const char *path);
+
+/**
+ * @brief Get a registry key using its path.
+ *
+ * @param fim_sql FIM database struct.
+ * @param arch An integer specifying the bit count of the register element, must be ARCH_32BIT or ARCH_64BIT.
+ * @param path Path to registry key.
+ * @param arch Architecture of the registry
+ *
+ * @return FIM registry key struct on success, NULL on error.
+*/
+fim_registry_key *fim_db_get_registry_key(fdb_t *fim_sql, const char *path, unsigned int arch);
 
 /**
  * @brief Read paths and registry paths which are stored in a temporal storage.
@@ -271,19 +283,6 @@ void fim_db_force_commit(fdb_t *fim_sql);
 int fim_db_clean_stmt(fdb_t *fim_sql, int index);
 
 /**
- * @brief Get count of all entries in the database. This function must not be called from outside fim_db,
- * use `fim_db_get_count` instead.
- *
- * The database to count is chosen with the index variable.
- *
- * @param fim_sql FIM database struct.
- * @param index Index to SQL statement.
- *
- * @return Number of entries in selected database.
-*/
-int _fim_db_get_count(fdb_t *fim_sql, int index);
-
-/**
  * @brief Get count of all entries in the database.
  *
  * The database to count is chosen with the index variable.
@@ -386,7 +385,7 @@ int fim_db_get_last_path(fdb_t * fim_sql, int type, char **path);
 int fim_db_get_first_path(fdb_t * fim_sql, int type, char **path);
 
 /**
- * @brief Get checksum of all file_entry.
+ * @brief Get checksum of all file_data.
  *
  * @param fim_sql FIM database struct.
  * @param type FIM_TYPE_FILE or FIM_TYPE_REGISTRY.
@@ -421,21 +420,5 @@ int fim_db_read_line_from_file(fim_tmp_file *file, int storage, int it, char **b
  * @return Number of entries in the FIM DB.
  */
 int fim_db_get_count_entries(fdb_t * fim_sql);
-
-/**
- * @brief Check if the FIM DB is full.
- *
- * @param fim_sql FIM database struct.
- * @retval 0 if the DB is not full.
- * @retval 1 if the DB is full.
- */
-int fim_db_is_full(fdb_t *fim_sql);
-
-/**
- * @brief Check if database if full
- *
- * @param fim_sql FIM database structure.
- */
-int fim_db_check_limit(fdb_t *fim_sql);
 
 #endif /* FIM_DB_COMMON_H */

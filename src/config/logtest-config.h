@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All right reserved.
  *
@@ -19,7 +19,7 @@
 #define LOGTEST_LIMIT_SESSION_TIMEOUT   31536000
 
 /**
- * @brief Struct to save the wazuh-logtest internal configuration
+ * @brief Struct to save the hids-logtest internal configuration
  */
 typedef struct w_logtest_conf_t {
 

@@ -4,8 +4,8 @@ import asyncio
 import itertools
 import logging
 import ssl
+import time
 import traceback
-from time import perf_counter
 from typing import Tuple, Dict, List
 
 import uvloop
@@ -312,9 +312,9 @@ class AbstractClient(common.Handler):
             Payload length.
         """
         while not self.on_con_lost.done():
-            before = perf_counter()
+            before = time.time()
             result = await self.send_request(b'echo', b'a' * test_size)
-            after = perf_counter()
+            after = time.time()
             if len(result) != test_size:
                 self.logger.error(result)
             else:
@@ -332,11 +332,10 @@ class AbstractClient(common.Handler):
             Number of requests to send.
         """
         while not self.on_con_lost.done():
-            before = perf_counter()
+            before = time.time()
             for i in range(n_msgs):
                 await self.send_request(b'echo', f'concurrency {i}'.encode())
-                after = perf_counter()
-            self.logger.info(f"Time sending {n_msgs} messages: {after - before}")
+            self.logger.info(f"Time sending {n_msgs} messages: {time.time() - before}")
             await asyncio.sleep(10)
 
     async def send_file_task(self, filename: str):
@@ -349,9 +348,9 @@ class AbstractClient(common.Handler):
         filename : str
             Filename to send.
         """
-        before = perf_counter()
+        before = time.time()
         response = await self.send_file(filename)
-        after = perf_counter()
+        after = time.time()
         self.logger.debug(response)
         self.logger.debug(f"Time: {after - before}")
 
@@ -365,8 +364,8 @@ class AbstractClient(common.Handler):
         string_size : int
             String length.
         """
-        before = perf_counter()
+        before = time.time()
         response = await self.send_string(my_str=b'a' * string_size)
-        after = perf_counter()
+        after = time.time()
         self.logger.debug(response)
         self.logger.debug(f"Time: {after - before}")

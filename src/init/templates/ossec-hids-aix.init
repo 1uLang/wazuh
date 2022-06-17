@@ -2,23 +2,23 @@
 #
 # name: ossec
 # purpose: Init script for ossec-hids
-# Copyright (C) 2015, Wazuh Inc.
+# Copyright (C) 2015-2020, Wazuh Inc.
 # Aug. 07 2008 Chris Cuevas
 #
 
 WAZUH_HOME=WAZUH_HOME_TMP
-WAZUH_CONTROL="$WAZUH_HOME/bin/wazuh-control"
+WAZUH_CONTROL="$WAZUH_HOME/bin/hids-control"
 
 case "$1" in
 start)
     if [ -f "$WAZUH_CONTROL" ]; then
-        echo "Starting Wazuh"
+        echo "Starting hids"
         ${WAZUH_CONTROL} start
     fi
     ;;
 stop)
     if [ -f "$WAZUH_CONTROL" ]; then
-        echo "Stopping Wazuh"
+        echo "Stopping hids"
         ${WAZUH_CONTROL} stop
     fi
     ;;

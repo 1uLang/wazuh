@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (C) 2015, Wazuh Inc.
+# Copyright (C) 2015-2020, Wazuh Inc.
 # Created by Wazuh, Inc. <info@wazuh.com>.
 # This program is free software; you can redistribute it and/or modify it under the terms of GPLv2
 
@@ -9,8 +9,8 @@ import pytest
 
 from wazuh.tests.util import InitWDBSocketMock
 
-with patch('wazuh.core.common.wazuh_uid'):
-    with patch('wazuh.core.common.wazuh_gid'):
+with patch('wazuh.core.common.ossec_uid'):
+    with patch('wazuh.core.common.ossec_gid'):
         from wazuh.core.syscollector import *
         from wazuh.core import common
 
@@ -42,7 +42,7 @@ def test_WazuhDBQuerySyscollector(mock_basic_info, mock_agents_info):
     """Verify that the method connects correctly to the database and returns the correct type."""
     with patch('wazuh.core.utils.WazuhDBConnection') as mock_wdb:
         mock_wdb.return_value = InitWDBSocketMock(sql_schema_file='schema_syscollector_000.sql')
-        db_query = WazuhDBQuerySyscollector(agent_id='000', offset=0, limit=common.DATABASE_LIMIT, select=None,
+        db_query = WazuhDBQuerySyscollector(agent_id='000', offset=0, limit=common.database_limit, select=None,
                                             search=None, sort=None, filters=None,
                                             fields=get_valid_fields(Type.OS, '000')[1], table='sys_osinfo',
                                             array=True, nested=True, query='')

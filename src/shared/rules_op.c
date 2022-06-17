@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All rights reserved.
  *
@@ -140,8 +140,6 @@ int OS_ReadXMLRules(const char *rulefile,
 
     const char *xml_mitre = "mitre";
     const char *xml_mitre_id = "id";
-    const char *xml_mitre_tactic_id = "tacticID";
-    const char *xml_mitre_technique_id = "techniqueID";
 
     char *rulepath = NULL;
 
@@ -240,9 +238,6 @@ int OS_ReadXMLRules(const char *rulefile,
             /* Rules options */
             int k = 0;
             int mitre_size = 0;
-            int mitre_size_deprecated = 0;
-            bool mitre_deprecated = false;
-            bool mitre_new_format = false;
 
             config_ruleinfo = NULL;
 
@@ -942,19 +937,9 @@ int OS_ReadXMLRules(const char *rulefile,
                         goto cleanup;
                     }
                 } else if (strcasecmp(rule_opt[k]->element, xml_mitre) == 0) {
-
-                    char *tactic_id = NULL;
-                    char *technique_id = NULL;
-                    bool id_flag = FALSE;
-                    bool id_tactic_flag = FALSE;
-                    bool id_technique_flag = FALSE;
-                    bool failure = FALSE;
-                    int id_tactic_n = 0;
-                    int id_technique_n = 0;
                     int ind;
                     int l;
                     XML_NODE mitre_opt = NULL;
-
                     mitre_opt = OS_GetElementsbyNode(&xml, rule_opt[k]);
 
                     if (mitre_opt == NULL) {
@@ -966,136 +951,38 @@ int OS_ReadXMLRules(const char *rulefile,
 
                     for (ind = 0; mitre_opt[ind] != NULL; ind++) {
                         if ((!mitre_opt[ind]->element) || (!mitre_opt[ind]->content)) {
-                            failure = TRUE;
                             break;
                         } else if (strcasecmp(mitre_opt[ind]->element, xml_mitre_id) == 0) {
                             if (strlen(mitre_opt[ind]->content) == 0) {
                                 mwarn("No Mitre Technique ID found for rule '%d'",
                                     config_ruleinfo->sigid);
-                                failure = TRUE;
                             } else {
-                                id_flag = TRUE;
-                            }
-                        } else if (strcasecmp(mitre_opt[ind]->element, xml_mitre_tactic_id) == 0) {
-                            if (strlen(mitre_opt[ind]->content) == 0) {
-                                mwarn("No Mitre Tactic ID found for rule '%d'",
-                                    config_ruleinfo->sigid);
-                                failure = TRUE;
-                            } else {
-                                id_tactic_flag = TRUE;
-                                id_tactic_n++;
-                            }
-                        } else if (strcasecmp(mitre_opt[ind]->element, xml_mitre_technique_id) == 0) {
-                            if (strlen(mitre_opt[ind]->content) == 0) {
-                                mwarn("No Mitre Technique ID found for rule '%d'",
-                                    config_ruleinfo->sigid);
-                                failure = TRUE;
-                            } else {
-                                id_technique_flag = TRUE;
-                                id_technique_n++;
-                            }
-                        } else {
-                            mwarn("Invalid option '%s' for rule '%d'", mitre_opt[ind]->element,
-                                config_ruleinfo->sigid);
-                            failure = TRUE;
-                        }
-                    }
-
-                    if(failure == FALSE) {
-                        if(id_flag == TRUE) {
-                            if(id_tactic_flag == TRUE || id_technique_flag == TRUE) {
-                                mwarn("Rule '%d' combined old and new Mitre formats in the same block. The Mitre block will be discarded.",
-                                        config_ruleinfo->sigid);
-                                failure = TRUE;
-                            } else {
-                                if (mitre_new_format == TRUE) {
-                                    mwarn("Rule '%d' combined old and new Mitre formats, the old Mitre Technique format will be discarded.",
-                                        config_ruleinfo->sigid);
-                                    free_strarray(config_ruleinfo->mitre_id);
-                                    config_ruleinfo->mitre_id = NULL;
-                                    failure = TRUE;
-                                } else {
-                                    mitre_deprecated = TRUE;
-                                    mdebug1("You are using a deprecated Mitre format in rule '%d'",
-                                        config_ruleinfo->sigid);
-                                }
-                            }
-                        } else {
-                            if(id_tactic_flag == TRUE && id_technique_flag == TRUE){
-                                if(id_tactic_n > 1 || id_technique_n > 1) {
-                                    mwarn("In rule '%d' is not allowed to join more than one Mitre techniqueID or tacticID in the same block. The Mitre block will be discarded.",
-                                        config_ruleinfo->sigid);
-                                    failure = TRUE;
-                                } else {
-                                    mitre_new_format = TRUE;
-                                    if (mitre_deprecated == TRUE) {
-                                        mwarn("Rule '%d' combined old and new Mitre formats, the old Mitre Technique format will be discarded.",
-                                            config_ruleinfo->sigid);
-                                        free_strarray(config_ruleinfo->mitre_id);
-                                        config_ruleinfo->mitre_id = NULL;
-                                        mitre_deprecated = FALSE;
-                                    }
-                                }
-                            }
-                            else if(id_tactic_flag == FALSE && id_technique_flag == TRUE) {
-                                mwarn("Mitre tacticID should be defined in rule '%d'",
-                                    config_ruleinfo->sigid);
-                                failure = TRUE;
-                            }
-                            else if(id_tactic_flag == TRUE && id_technique_flag == FALSE) {
-                                mwarn("Mitre techniqueID should be defined in rule '%d'",
-                                    config_ruleinfo->sigid);
-                                failure = TRUE;
-                            }
-                        }
-                    }
-
-                    if(failure == FALSE) {
-                        for (ind = 0; mitre_opt[ind] != NULL; ind++) {
-                            if (strcasecmp(mitre_opt[ind]->element, xml_mitre_id) == 0) {
-                                bool inarray = FALSE;
-                                for (l = 0; l < mitre_size_deprecated; l++) {
-                                    if (strcmp(config_ruleinfo->mitre_id[l], mitre_opt[ind]->content) == 0) {
-                                        inarray = TRUE;
+                                int inarray = 0;
+                                for (l = 0; l < mitre_size; l++) {
+                                    if (strcmp(config_ruleinfo->mitre_id[l],mitre_opt[ind]->content) == 0) {
+                                        inarray = 1;
                                     }
                                 }
                                 if (!inarray) {
-                                    os_realloc(config_ruleinfo->mitre_id, (mitre_size_deprecated + 2) * sizeof(char *),
-                                            config_ruleinfo->mitre_id);
-                                    os_strdup(mitre_opt[ind]->content, config_ruleinfo->mitre_id[mitre_size_deprecated]);
-                                    config_ruleinfo->mitre_id[mitre_size_deprecated + 1] = NULL;
-                                    mitre_size_deprecated++;
-                                }
-                            } else if (strcasecmp(mitre_opt[ind]->element, xml_mitre_tactic_id) == 0) {
-                                os_strdup(mitre_opt[ind]->content, tactic_id);
-
-                            } else if (strcasecmp(mitre_opt[ind]->element, xml_mitre_technique_id) == 0) {
-                                os_strdup(mitre_opt[ind]->content, technique_id);
-                            }
-                        }
-                        if(tactic_id && technique_id) {
-                            bool inarray = FALSE;
-                            for (l = 0; l < mitre_size; l++) {
-                                if (strcmp(config_ruleinfo->mitre_technique_id[l], technique_id) == 0 &&
-                                    strcmp(config_ruleinfo->mitre_tactic_id[l], tactic_id) == 0) {
-                                    inarray = TRUE;
+                                    os_realloc(config_ruleinfo->mitre_id, (mitre_size + 2) * sizeof(char *),
+                                               config_ruleinfo->mitre_id);
+                                    os_strdup(mitre_opt[ind]->content, config_ruleinfo->mitre_id[mitre_size]);
+                                    config_ruleinfo->mitre_id[mitre_size + 1] = NULL;
+                                    mitre_size++;
                                 }
                             }
-                            if (!inarray) {
-                                os_realloc(config_ruleinfo->mitre_tactic_id, (mitre_size + 2) * sizeof(char *),
-                                        config_ruleinfo->mitre_tactic_id);
-                                os_strdup(tactic_id, config_ruleinfo->mitre_tactic_id[mitre_size]);
-                                    config_ruleinfo->mitre_tactic_id[mitre_size + 1] = NULL;
+                        } else {
+                            merror("Invalid option '%s' for "
+                            "rule '%d'", mitre_opt[ind]->element,
+                            config_ruleinfo->sigid);
 
-                                os_realloc(config_ruleinfo->mitre_technique_id, (mitre_size + 2) * sizeof(char *),
-                                            config_ruleinfo->mitre_technique_id);
-                                os_strdup(technique_id, config_ruleinfo->mitre_technique_id[mitre_size]);
-                                    config_ruleinfo->mitre_technique_id[mitre_size + 1] = NULL;
-                                mitre_size++;
+                            for (l = 0; config_ruleinfo->mitre_id[l] != NULL; l++) {
+                                os_free(config_ruleinfo->mitre_id[l]);
                             }
+                            os_free(config_ruleinfo->mitre_id);
+                            OS_ClearNode(mitre_opt);
+                            goto cleanup;
                         }
-                        os_free(tactic_id);
-                        os_free(technique_id);
                     }
                     OS_ClearNode(mitre_opt);
                 }
@@ -1117,14 +1004,6 @@ int OS_ReadXMLRules(const char *rulefile,
                 */
 
                 k++;
-            }
-
-            /* Check for valid overwrite */
-            if ((config_ruleinfo->if_sid || config_ruleinfo->if_group || config_ruleinfo->if_level)
-                && (config_ruleinfo->alert_opts & DO_OVERWRITE)) {
-                merror("Invalid use of overwrite option. "
-                       "Could not overwrite parent rule at rule '%d'.", config_ruleinfo->sigid);
-                goto cleanup;
             }
 
             /* Check for a valid use of frequency */
@@ -1587,7 +1466,7 @@ void _OS_FreeRule(RuleInfo *ruleinfo) {
 
     if (ruleinfo->srcip) {
         for (i = 0; ruleinfo->srcip[i]; i++) {
-            w_free_os_ip(ruleinfo->srcip[i]);
+            free(ruleinfo->srcip[i]);
         }
 
         free(ruleinfo->srcip);
@@ -1595,7 +1474,7 @@ void _OS_FreeRule(RuleInfo *ruleinfo) {
 
     if (ruleinfo->dstip) {
         for (i = 0; ruleinfo->dstip[i]; i++) {
-            w_free_os_ip(ruleinfo->dstip[i]);
+            free(ruleinfo->dstip[i]);
         }
 
         free(ruleinfo->dstip);

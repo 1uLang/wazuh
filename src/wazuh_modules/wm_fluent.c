@@ -1,6 +1,6 @@
 /*
  * Wazuh Module for Fluent Forwarder
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * January 25, 2019.
  *
  * This program is free software; you can redistribute it
@@ -37,7 +37,7 @@
 #define expect_type(obj, t, str) if (obj.type != t) { mdebug2("Expecting %s", str); goto error; }
 
 // expect_string() is redefined in cmocka.h
-#ifdef WAZUH_UNIT_TESTING
+#ifdef HIDS_UNIT_TESTING
     #define test_expect_string(obj, s) if (strncmp(obj.via.str.ptr, s, obj.via.str.size)) { mdebug2("Expecting string '%s'", s); goto error; }
 #else
     #define expect_string(obj, s) if (strncmp(obj.via.str.ptr, s, obj.via.str.size)) { mdebug2("Expecting string '%s'", s); goto error; }
@@ -399,7 +399,7 @@ static wm_fluent_helo_t * wm_fluent_recv_helo(wm_fluent_t * fluent) {
     expect_type(array[0], MSGPACK_OBJECT_STR, "string");
 
     // expect_string() is redefined in cmocka.h
-    #ifdef WAZUH_UNIT_TESTING
+    #ifdef HIDS_UNIT_TESTING
         test_expect_string(array[0], "HELO");
     #else
         expect_string(array[0], "HELO");
@@ -604,7 +604,7 @@ static wm_fluent_pong_t * wm_fluent_recv_pong(wm_fluent_t * fluent) {
     expect_type(array[0], MSGPACK_OBJECT_STR, "string");
 
     // expect_string() is redefined in cmocka.h
-    #ifdef WAZUH_UNIT_TESTING
+    #ifdef HIDS_UNIT_TESTING
         test_expect_string(array[0], "PONG");
     #else
         expect_string(array[0], "PONG");

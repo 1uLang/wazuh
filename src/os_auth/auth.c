@@ -1,5 +1,5 @@
 /* Auth Common
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * Mar 22, 2018.
  *
  * This program is free software; you can redistribute it
@@ -9,15 +9,10 @@
  */
 
 #include <shared.h>
-#include <stdio.h>
 #include "auth.h"
-#include "defs.h"
 #include "os_err.h"
-#include "string_op.h"
-#include "wazuh_db/helpers/wdb_global_helpers.h"
-#include "wazuh_db/wdb.h"
 
-#ifdef WAZUH_UNIT_TESTING
+#ifdef HIDS_UNIT_TESTING
 #define static
 #endif
 
@@ -160,16 +155,12 @@ w_err_t w_auth_parse_data(const char* buf,
 
         /* If IP: != 'src' overwrite the provided ip */
         if (strncmp(client_source_ip,"src",3) != 0) {
-            os_ip *aux_ip;
-            os_calloc(1, sizeof(os_ip), aux_ip);
-            if (!OS_IsValidIP(client_source_ip, aux_ip)) {
+            if (!OS_IsValidIP(client_source_ip, NULL)) {
                 merror("Invalid IP: '%s'", client_source_ip);
                 snprintf(response, 2048, "ERROR: Invalid IP: %s", client_source_ip);
-                w_free_os_ip(aux_ip);
                 return OS_INVALID;
             }
-            snprintf(ip, IPSIZE, "%s", aux_ip->ip);
-            w_free_os_ip(aux_ip);
+            snprintf(ip, IPSIZE + 1, "%s", client_source_ip);
         }
 
         /* Forward the string pointer IP:'........' 3 for IP: , 2 for '' */
@@ -187,7 +178,7 @@ w_err_t w_auth_parse_data(const char* buf,
     if (strncmp(++buf, key_hash_token, 2) == 0) {
         os_calloc(1, sizeof(os_sha1), *key_hash);
         char format[15] = {0};
-        sprintf(format, " K:\'%%%ld[^\']\"", sizeof(os_sha1) - 1);
+        sprintf(format, " K:\'%%%ld[^\']\"", sizeof(os_sha1));
         sscanf(buf, format, *key_hash);
     }
 
@@ -196,85 +187,36 @@ w_err_t w_auth_parse_data(const char* buf,
 
 w_err_t w_auth_replace_agent(keyentry *key,
                              const char *key_hash,
-                             authd_force_options_t *force_options,
-                             char** str_result) {
-
-    cJSON *j_agent_info = NULL;
-    cJSON *j_date_add = NULL;
-    cJSON *j_disconnection_time = NULL;
-    cJSON *j_connection_status = NULL;
-    bool replace_agent = true;
-    char message[OS_SIZE_128] = {0};
+                             authd_force_options_t *force_options) {
 
     /* Check if the agent replacement is allowed */
     if (!force_options->enabled) {
-        snprintf(message, OS_SIZE_128, "Agent '%s' won't be removed because the force option is disabled.", key->id);
-        os_strdup(message, *str_result);
+        minfo("Agent '%s' won't be removed because the force option is disabled.", key->id);
         return OS_INVALID;
     }
 
-    j_agent_info = wdb_get_agent_info(atoi(key->id), NULL);
-    if (j_agent_info) {
-        j_connection_status = cJSON_GetObjectItem(j_agent_info->child, "connection_status");
-        j_disconnection_time = cJSON_GetObjectItem(j_agent_info->child, "disconnection_time");
-        j_date_add = cJSON_GetObjectItem(j_agent_info->child, "date_add");
-    }
-
-    if (!j_agent_info || !j_connection_status || !j_disconnection_time || !j_date_add) {
-        cJSON_Delete(j_agent_info);
-        snprintf(message, OS_SIZE_128, "Failed to get agent-info for agent '%s'", key->id);
-        os_strdup(message, *str_result);
+    /* Check if the agent antiquity complies with the configuration to be removed */
+    double antiquity = 0;
+    if (antiquity = OS_AgentAntiquity(key->name, key->ip->ip), antiquity > 0 && antiquity < force_options->connection_time) {
+        minfo("Agent '%s' doesn't comply with the antiquity to be removed.", key->id);
         return OS_INVALID;
-    }
-
-    /* Check if the agent has been disconnected longer than the value specified in the configuration option*/
-    if (force_options->disconnected_time_enabled) {
-        if (strcmp(j_connection_status->valuestring, AGENT_CS_NEVER_CONNECTED)) {
-            time_t time_since_disconnected = difftime(time(NULL), j_disconnection_time->valueint);
-            if (!strcmp(j_connection_status->valuestring, AGENT_CS_DISCONNECTED) && j_disconnection_time->valueint > 0 && time_since_disconnected < force_options->disconnected_time) {
-                snprintf(message, OS_SIZE_128, "Agent '%s' has not been disconnected long enough to be replaced.", key->id);
-                os_strdup(message, *str_result);
-                replace_agent = false;
-            } else if (j_disconnection_time->valueint == 0) {
-                snprintf(message, OS_SIZE_128, "Agent '%s' can't be replaced since it is not disconnected.", key->id);
-                os_strdup(message, *str_result);
-                replace_agent = false;
-            }
-        }
-    }
-
-    /* Check if the agent is old enough to be removed */
-    if (replace_agent && force_options->after_registration_time > 0) {
-        time_t agent_registration_time = difftime(time(NULL), j_date_add->valueint);
-        if (agent_registration_time < force_options->after_registration_time) {
-            snprintf(message, OS_SIZE_128, "Agent '%s' doesn't comply with the registration time to be removed.", key->id);
-            os_strdup(message, *str_result);
-            replace_agent = false;
-        }
     }
 
     /* Check if the agent key is the same than the existent in the manager */
-    if (replace_agent && key_hash && force_options->key_mismatch) {
+    if (key_hash) {
         os_sha1 manager_key_hash;
         w_get_key_hash(key, manager_key_hash);
         if (!strcmp(manager_key_hash, key_hash)) {
-            snprintf(message, OS_SIZE_128, "Agent '%s' key already exists on the manager.", key->id);
-            os_strdup(message, *str_result);
-            replace_agent = false;
+            minfo("Agent '%s' key already exists on the manager.", key->id);
+            return OS_INVALID;
         }
     }
 
-    cJSON_Delete(j_agent_info);
-
     /* Replace the agent */
-    if (replace_agent) {
-        snprintf(message, OS_SIZE_128, "Removing old agent '%s' (id '%s').", key->name, key->id);
-        os_strdup(message, *str_result);
-        add_remove(key);
-        OS_DeleteKey(&keys, key->id, 0);
-        return OS_SUCCESS;
-    }
-    return OS_INVALID;
+    minfo("Removing old agent '%s'.", key->id);
+    add_remove(key);
+    OS_DeleteKey(&keys, key->id, 0);
+    return OS_SUCCESS;
 }
 
 w_err_t w_auth_validate_data(char *response,
@@ -283,45 +225,40 @@ w_err_t w_auth_validate_data(char *response,
                              const char *groups,
                              const char *key_hash) {
     int index = 0;
-    char* str_result = NULL;
-    w_err_t result = OS_SUCCESS;
 
     /* Validate the group(s) name(s) */
     if (groups) {
-        result = w_auth_validate_groups(groups, response);
+        if (OS_SUCCESS != w_auth_validate_groups(groups, response)) {
+            return OS_INVALID;
+        }
     }
 
     /* Check for duplicate IP */
-    if (result != OS_INVALID && strcmp(ip, "any") != 0 && (index = OS_IsAllowedIP(&keys, ip), index >= 0)) {
-        if(OS_SUCCESS == w_auth_replace_agent(keys.keyentries[index], key_hash, &config.force_options, &str_result)) {
-            minfo("Duplicate IP '%s'. %s", ip, str_result);
-        } else {
-            mwarn("Duplicate IP '%s', rejecting enrollment. %s", ip, str_result);
+    if (strcmp(ip, "any") != 0 && (index = OS_IsAllowedIP(&keys, ip), index >= 0)) {
+        minfo("Duplicate IP '%s' (%s).", ip, keys.keyentries[index]->id);
+        if (OS_SUCCESS != w_auth_replace_agent(keys.keyentries[index], key_hash, &config.force_options)) {
             snprintf(response, 2048, "ERROR: Duplicate IP: %s", ip);
-            result = OS_INVALID;
+            return OS_INVALID;
         }
     }
 
     /* Check whether the agent name is the same as the manager */
-    if (result != OS_INVALID && !strcmp(agentname, shost)) {
+    if (!strcmp(agentname, shost)) {
         merror("Invalid agent name %s (same as manager)", agentname);
         snprintf(response, 2048, "ERROR: Invalid agent name: %s", agentname);
-        result = OS_INVALID;
+        return OS_INVALID;
     }
 
     /* Check for duplicate name */
-    if (result != OS_INVALID && (index = OS_IsAllowedName(&keys, agentname), index >= 0)) {
-        if(OS_SUCCESS == w_auth_replace_agent(keys.keyentries[index], key_hash, &config.force_options, &str_result)) {
-            minfo("Duplicate name. %s", str_result);
-        } else {
-            mwarn("Duplicate name '%s', rejecting enrollment. %s", agentname, str_result);
+    if (index = OS_IsAllowedName(&keys, agentname), index >= 0) {
+        minfo("Duplicate name '%s' (%s).", agentname, keys.keyentries[index]->id);
+        if (OS_SUCCESS != w_auth_replace_agent(keys.keyentries[index], key_hash, &config.force_options)) {
             snprintf(response, 2048, "ERROR: Duplicate agent name: %s", agentname);
-            result = OS_INVALID;
+            return OS_INVALID;
         }
     }
 
-    os_free(str_result);
-    return result;
+    return OS_SUCCESS;
 }
 
 w_err_t w_auth_add_agent(char *response, const char *ip, const char *agentname, const char *groups, char **id, char **key) {
@@ -339,7 +276,7 @@ w_err_t w_auth_add_agent(char *response, const char *ip, const char *agentname, 
     if (groups) {
         char path[PATH_MAX];
         if (snprintf(path, PATH_MAX, GROUPS_DIR "/%s", keys.keyentries[index]->id) >= PATH_MAX) {
-            merror("File path too large for agent '%s'.", keys.keyentries[index]->id);
+            merror("At set_agent_group(): file path too large for agent '%s'.", keys.keyentries[index]->id);
             OS_RemoveAgent(keys.keyentries[index]->id);
             merror("Unable to set agent centralized group: %s (internal error)", groups);
             snprintf(response, 2048, "ERROR: Internal manager error setting agent centralized group: %s", groups);

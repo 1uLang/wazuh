@@ -1,6 +1,6 @@
 /*
  * Wazuh Module Configuration
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * January, 2018.
  *
  * This program is free software; you can redistribute it
@@ -46,7 +46,7 @@ static int wm_vuldet_provider_os_list(xml_node **node, vu_os_feed **feeds, char 
 static void wm_vuldet_set_port_to_url(char **url, int port);
 static int wm_vuldet_add_allow_os(update_node *update, char *os_tags);
 static int wm_vuldet_read_provider_content(xml_node **node, char *name, char multi_provider, provider_options *options);
-static int wm_vuldet_provider_type(char *pr_name);
+static char wm_vuldet_provider_type(char *pr_name);
 static void wm_vuldet_remove_os_feed(vu_os_feed *feed, char full_r);
 static void wm_vuldet_remove_os_feed_list(vu_os_feed *feeds);
 static void wm_vuldet_init_provider_options(provider_options *options);
@@ -61,8 +61,7 @@ static const char *XML_NAME = "name";
 static const char *XML_OS = "os";
 static const char *XML_UPDATE_INTERVAL = "update_interval";
 static const char *XML_RUN_ON_START = "run_on_start";
-static const char *XML_MIN_FULL_SCAN_INTERVAL = "min_full_scan_interval";
-static const char *XML_RETRY_INTERVAL = "retry_interval";
+static const char *XML_IGNORE_TIME = "ignore_time";
 static const char *XML_URL = "url";
 static const char *XML_PATH = "path";
 static const char *XML_PORT = "port";
@@ -78,7 +77,6 @@ static const char *XML_END = "end";
 static const char *XML_FEED = "feed";
 static const char *XML_UPDATE_UBUNTU_OVAL = "update_ubuntu_oval";
 static const char *XML_UPDATE_REDHAT_OVAL = "update_redhat_oval";
-static const char *XML_IGNORE_TIME = "ignore_time";
 
 int format_os_version(char *OS, char **os_name, char **os_ver) {
     char OS_cpy[OS_SIZE_1024] = {'\0'};
@@ -168,12 +166,7 @@ int wm_vuldet_set_feed_version(char *feed, char *version, update_node **upd_list
         }
         upd->dist_ref = FEED_UBUNTU;
     } else if (strcasestr(feed, vu_feed_tag[FEED_DEBIAN]) && version) {
-        if (!strcmp(version, "11") || strcasestr(version, vu_feed_tag[FEED_BULLSEYE])) {
-            os_index = CVE_BULLSEYE;
-            os_strdup(vu_feed_tag[FEED_BULLSEYE], upd->version);
-            upd->dist_tag_ref = FEED_BULLSEYE;
-            upd->dist_ext = vu_feed_ext[FEED_BULLSEYE];
-        } else if (!strcmp(version, "10") || strcasestr(version, vu_feed_tag[FEED_BUSTER])) {
+        if (!strcmp(version, "10") || strcasestr(version, vu_feed_tag[FEED_BUSTER])) {
             os_index = CVE_BUSTER;
             os_strdup(vu_feed_tag[FEED_BUSTER], upd->version);
             upd->dist_tag_ref = FEED_BUSTER;
@@ -242,36 +235,6 @@ int wm_vuldet_set_feed_version(char *feed, char *version, update_node **upd_list
             goto end;
         }
         upd->dist_ref = FEED_REDHAT;
-    } else if (strcasestr(feed, vu_feed_tag[FEED_ALAS])) {
-        if (!version) {
-            retval = OS_INVALID;
-            goto end;
-        }
-        // Amazon Linux 1
-        else if (!strcmp(version, "1") || strcasestr(vu_feed_tag[FEED_ALAS1], version)) {
-            os_index = CVE_ALAS1;
-            upd->dist_tag_ref = FEED_ALAS1;
-            os_strdup(vu_feed_tag[FEED_ALAS1], upd->version);
-            upd->dist_ext = vu_feed_ext[FEED_ALAS1];
-        // Amazon Linux 2
-        } else if (!strcmp(version, "2") || strcasestr(vu_feed_tag[FEED_ALAS2], version)) {
-            os_index = CVE_ALAS2;
-            upd->dist_tag_ref = FEED_ALAS2;
-            os_strdup(vu_feed_tag[FEED_ALAS2], upd->version);
-            upd->dist_ext = vu_feed_ext[FEED_ALAS2];
-        } else {
-            merror("Invalid Amazon Linux version '%s'", version);
-            retval = OS_INVALID;
-            goto end;
-        }
-        upd->dist_ref = FEED_ALAS;
-        upd->json_format = 1;
-    } else if (strcasestr(feed, vu_feed_tag[FEED_ARCH])) {
-        os_index = CVE_ARCH;
-        upd->dist_tag_ref = FEED_ARCH;
-        upd->dist_ext = vu_feed_ext[FEED_ARCH];
-        upd->dist_ref = FEED_ARCH;
-        upd->json_format = 1;
     } else if (strcasestr(feed, vu_feed_tag[FEED_MSU])) {
         os_index = CVE_MSU;
         upd->dist_tag_ref = FEED_MSU;
@@ -395,10 +358,9 @@ int Read_Vuln(const OS_XML *xml, xml_node **nodes, void *d1, char d2) {
     vuldet->flags.patch_scan = 1;
     vuldet->flags.permissive_patch_scan = 0;
     vuldet->flags.enabled = 1;
-    vuldet->min_full_scan_interval = VU_DEF_MIN_FULL_SCAN_INTERVAL;
-    vuldet->retry_interval = VU_DEF_RETRY_INTERVAL;
-    vuldet->scan_interval = WM_VULNDETECTOR_DEFAULT_INTERVAL;
-    vuldet->scan_agents = NULL;
+    vuldet->ignore_time = VU_DEF_IGNORE_TIME;
+    vuldet->detection_interval = WM_VULNDETECTOR_DEFAULT_INTERVAL;
+    vuldet->agents_software = NULL;
     cur_wmodule->context = &WM_VULNDETECTOR_CONTEXT;
     cur_wmodule->tag = strdup(cur_wmodule->context->name);
     cur_wmodule->data = vuldet;
@@ -432,7 +394,7 @@ int Read_Vuln(const OS_XML *xml, xml_node **nodes, void *d1, char d2) {
                 return OS_INVALID;
             }
         } else if (!strcmp(nodes[i]->element, XML_INTERVAL)) {
-            if (wm_vuldet_get_interval(nodes[i]->content, &vuldet->scan_interval)) {
+            if (wm_vuldet_get_interval(nodes[i]->content, &vuldet->detection_interval)) {
                 merror("Invalid interval at module '%s'", WM_VULNDETECTOR_CONTEXT.name);
                 return OS_INVALID;
             }
@@ -454,16 +416,9 @@ int Read_Vuln(const OS_XML *xml, xml_node **nodes, void *d1, char d2) {
                 merror("Invalid content for tag '%s' at module '%s'", XML_RUN_ON_START, WM_VULNDETECTOR_CONTEXT.name);
                 return OS_INVALID;
             }
-        } else if (!strcmp(nodes[i]->element, XML_IGNORE_TIME)){
-            mwarn("The <%s> tag at module '%s' is deprecated for version newer than 4.3.", nodes[i]->element, WM_VULNDETECTOR_CONTEXT.name);
-        } else if (!strcmp(nodes[i]->element, XML_MIN_FULL_SCAN_INTERVAL)) {
-            if (wm_vuldet_get_interval(nodes[i]->content, &vuldet->min_full_scan_interval)) {
-                merror("Invalid min_full_scan_interval at module '%s'", WM_VULNDETECTOR_CONTEXT.name);
-                return OS_INVALID;
-            }
-        } else if (!strcmp(nodes[i]->element, XML_RETRY_INTERVAL)) {
-            if (wm_vuldet_get_interval(nodes[i]->content, &vuldet->retry_interval)) {
-                merror("Invalid retry_interval at module '%s'", WM_VULNDETECTOR_CONTEXT.name);
+        } else if (!strcmp(nodes[i]->element, XML_IGNORE_TIME)) {
+            if (wm_vuldet_get_interval(nodes[i]->content, &vuldet->ignore_time)) {
+                merror("Invalid ignore_time at module '%s'", WM_VULNDETECTOR_CONTEXT.name);
                 return OS_INVALID;
             }
         } else {
@@ -516,7 +471,7 @@ int wm_vuldet_read_provider(const OS_XML *xml, xml_node *node, update_node **upd
     char *pr_name = NULL;
     vu_os_feed *os_list = NULL;
     int result;
-    int multi_provider;
+    char multi_provider;
     provider_options p_options = { .multi_path = 0 };
     int retval = OS_INVALID;
 
@@ -555,7 +510,7 @@ int wm_vuldet_read_provider(const OS_XML *xml, xml_node *node, update_node **upd
     }
 
     /**
-     *  single_provider = Ubuntu, Debian, Amazon and RedHat.
+     *  single_provider = Ubuntu, Debian and RedHat.
      *  Those which use the <os> tag.
      **/
     if (!multi_provider) {
@@ -905,7 +860,6 @@ int wm_vuldet_read_provider_content(xml_node **node, char *name, char multi_prov
     int i, j;
     int8_t rhel_enabled = (strcasestr(name, vu_feed_tag[FEED_REDHAT])) ? 1 : 0;
     int8_t msu_enabled = (strcasestr(name, vu_feed_tag[FEED_MSU])) ? 1 : 0;
-    int8_t arch_enabled = (strcasestr(name, vu_feed_tag[FEED_ARCH])) ? 1 : 0;
 
     memset(options, '\0', sizeof(provider_options));
 
@@ -917,8 +871,8 @@ int wm_vuldet_read_provider_content(xml_node **node, char *name, char multi_prov
             // Deprecated in RHEL
             if (rhel_enabled) {
                 minfo("'%s' option at module '%s' is deprecated. Use '%s' instead.", XML_UPDATE_FROM_YEAR, WM_VULNDETECTOR_CONTEXT.name, XML_OS);
-            // Even though MSU and ArchLinux are multi_provider, they do not use the update_from_year option.
-            } else if (msu_enabled || arch_enabled) {
+            // Even though MSU is a multi_provider, it does not use the update_from_year option.
+            } else if (msu_enabled) {
                 mwarn("'%s' option cannot be used for '%s' provider.", node[i]->element, name);
                 continue;
             }
@@ -990,15 +944,13 @@ int wm_vuldet_read_provider_content(xml_node **node, char *name, char multi_prov
     return 0;
 }
 
-int wm_vuldet_provider_type(char *pr_name) {
+char wm_vuldet_provider_type(char *pr_name) {
     if (strcasestr(pr_name, vu_feed_tag[FEED_CANONICAL]) ||
         strcasestr(pr_name, vu_feed_tag[FEED_DEBIAN]) ||
-        strcasestr(pr_name, vu_feed_tag[FEED_ALAS]) ||
         strcasestr(pr_name, vu_feed_tag[FEED_REDHAT])) {
         return 0;
     } else if (strcasestr(pr_name, vu_feed_tag[FEED_NVD]) ||
-        strcasestr(pr_name, vu_feed_tag[FEED_MSU]) ||
-        strcasestr(pr_name, vu_feed_tag[FEED_ARCH])) {
+        strcasestr(pr_name, vu_feed_tag[FEED_MSU])) {
         return 1;
     } else {
         return OS_INVALID;

@@ -1,4 +1,4 @@
-# Copyright (C) 2015, Wazuh Inc.
+# Copyright (C) 2015-2019, Wazuh Inc.
 # Created by Wazuh, Inc. <info@wazuh.com>.
 # This program is free software; you can redistribute it and/or modify it under the terms of GPLv2
 
@@ -12,7 +12,6 @@ from wazuh.core.utils import find_nth, delete_wazuh_file, to_relative_path
 
 REQUIRED_FIELDS = ['relative_dirname', 'filename']
 SORT_FIELDS = ['relative_dirname', 'filename']
-LIST_FIELDS = ['items', 'filename', 'relative_dirname']
 
 _regex_path = r'^(etc/lists/)[\w\.\-/]+$'
 _pattern_path = re.compile(_regex_path)
@@ -28,7 +27,7 @@ def check_path(path):
         raise WazuhError(1801)
 
 
-def iterate_lists(absolute_path=common.USER_LISTS_PATH, only_names=False):
+def iterate_lists(absolute_path=common.user_lists_path, only_names=False):
     """Get the content of all CDB lists
 
     :param absolute_path: Full path of directory to get CDB lists
@@ -51,7 +50,7 @@ def iterate_lists(absolute_path=common.USER_LISTS_PATH, only_names=False):
                 relative_path = to_relative_path(absolute_path)
                 output.append({'relative_dirname': relative_path, 'filename': name})
             else:
-                items = get_list_from_file(path.join(common.WAZUH_PATH, new_relative_path))
+                items = get_list_from_file(path.join(common.wazuh_path, new_relative_path))
                 output.append({'relative_dirname': new_relative_path, 'filename': name, 'items': items})
         elif path.isdir(new_absolute_path):
             output += iterate_lists(new_absolute_path, only_names=only_names)
@@ -97,7 +96,7 @@ def split_key_value_with_quotes(line, file_path='/CDB_LISTS_PATH'):
         # Check that the line finishes with ..."
         if first_quote != 0 or line[second_quote: third_quote + 1] != '":"' or fourth_quote != len(
                 line) - 1:
-            raise WazuhError(1800, extra_message={'path': path.join('WAZUH_HOME', file_path)})
+            raise WazuhError(1800, extra_message={'path': path.join('HIDS_HOME', file_path)})
 
     # Check whether the string surrounded by quotes is the key or the value
     elif line.count('"') == 2:
@@ -109,7 +108,7 @@ def split_key_value_with_quotes(line, file_path='/CDB_LISTS_PATH'):
             # Check that the line starts with "...
             # Check that the line has the structure ...":...
             if first_quote != 0 or line[second_quote: second_quote + 2] != '":':
-                raise WazuhError(1800, extra_message={'path': path.join('WAZUH_HOME', file_path)})
+                raise WazuhError(1800, extra_message={'path': path.join('HIDS_HOME', file_path)})
 
         # Check if the value is surrounded by quotes
         if line.find(":") < first_quote:
@@ -119,11 +118,11 @@ def split_key_value_with_quotes(line, file_path='/CDB_LISTS_PATH'):
             # Check that the line finishes with ..."
             # Check that the line has the structure ...:"...
             if second_quote != len(line) - 1 or line[first_quote - 1: first_quote + 1] != ':"':
-                raise WazuhError(1800, extra_message={'path': path.join('WAZUH_HOME', file_path)})
+                raise WazuhError(1800, extra_message={'path': path.join('HIDS_HOME', file_path)})
 
     # There is an odd number of quotes (or more than 4)
     else:
-        raise WazuhError(1800, extra_message={'path': path.join('WAZUH_HOME', file_path)})
+        raise WazuhError(1800, extra_message={'path': path.join('HIDS_HOME', file_path)})
 
     return key, value
 
@@ -249,16 +248,16 @@ def delete_list(rel_path):
     rel_path : str
         Relative path of the file to delete.
     """
-    delete_wazuh_file(path.join(common.WAZUH_PATH, rel_path))
+    delete_wazuh_file(path.join(common.wazuh_path, rel_path))
 
     # Also delete .cdb file (if exists).
     try:
-        remove(path.join(common.WAZUH_PATH, rel_path + common.COMPILED_LISTS_EXTENSION))
+        remove(path.join(common.wazuh_path, rel_path + common.COMPILED_LISTS_EXTENSION))
     except (IOError, OSError):
         pass
 
 
-def get_filenames_paths(filenames_list, root_directory=common.USER_LISTS_PATH):
+def get_filenames_paths(filenames_list, root_directory=common.user_lists_path):
     """Get full paths from filename list. I.e: test_filename -> {wazuh_path}/etc/lists/test_filename
 
     Parameters
@@ -273,5 +272,4 @@ def get_filenames_paths(filenames_list, root_directory=common.USER_LISTS_PATH):
     list
         Full path to filenames.
     """
-    return [str(next(Path(root_directory).rglob(file), path.join(common.USER_LISTS_PATH, file)))
-            for file in filenames_list]
+    return [str(next(Path(root_directory).rglob(file), path.join(common.user_lists_path, file))) for file in filenames_list]

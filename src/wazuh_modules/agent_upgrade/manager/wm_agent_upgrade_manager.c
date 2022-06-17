@@ -1,6 +1,6 @@
 /*
  * Wazuh Module for Agent Upgrading
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * July 30, 2020.
  *
  * This program is free software; you can redistribute it
@@ -15,7 +15,7 @@
 #include "wm_agent_upgrade_upgrades.h"
 #include "os_net/os_net.h"
 
-#ifdef WAZUH_UNIT_TESTING
+#ifdef HIDS_UNIT_TESTING
 // Remove static qualifier when unit testing
 #define STATIC
 #else
@@ -203,7 +203,7 @@ STATIC void wm_agent_upgrade_listen_messages(const wm_manager_configs* manager_c
         os_free(buffer);
         close(peer);
 
-    #ifdef WAZUH_UNIT_TESTING
+    #ifdef HIDS_UNIT_TESTING
         break;
     #endif
     }

@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All rights reserved.
  *
@@ -46,19 +46,8 @@ void os_delwait()
  * process is allowed to lock).
  */
 #ifdef WIN32
-
-void loop_check(bool (*fn_ptr)()) {
-    while (1) {
-        if (!__wait_lock || (fn_ptr && fn_ptr())) {
-            break;
-        }
-
-        /* Sleep LOCK_LOOP seconds and check if lock is gone */
-        sleep(LOCK_LOOP);
-    }
-}
-
-void os_wait_primitive(bool (*fn_ptr)()) {
+void os_wait()
+{
     static int just_unlocked = 0;
 
     if (!__wait_lock) {
@@ -73,8 +62,14 @@ void os_wait_primitive(bool (*fn_ptr)()) {
     } else {
         mdebug1(WAITING_MSG);
     }
+    while (1) {
+        if (!__wait_lock) {
+            break;
+        }
 
-    loop_check(fn_ptr);
+        /* Sleep LOCK_LOOP seconds and check if lock is gone */
+        sleep(LOCK_LOOP);
+    }
 
     if (just_unlocked) {
         minfo(WAITING_FREE);
@@ -90,56 +85,45 @@ void os_wait_primitive(bool (*fn_ptr)()) {
 
 #else /* !WIN32 */
 
-void loop_check(struct stat *file_status, bool (*fn_ptr)()) {
-    while (1) {
-        if (stat(WAIT_FILE, file_status) == -1 || (fn_ptr && fn_ptr())) {
-            break;
-        }
-        /* Sleep LOCK_LOOP seconds and check if lock is gone */
-        sleep(LOCK_LOOP);
-    }
-}
-
-void os_wait_primitive(bool (*fn_ptr)()) {
+void os_wait()
+{
     struct stat file_status;
-    static atomic_int_t just_unlocked = ATOMIC_INT_INITIALIZER(0);
+    static int just_unlocked = 0;
 
     /* If the wait file is not present, keep going */
     if (stat(WAIT_FILE, &file_status) == -1) {
-        atomic_int_set(&just_unlocked, 1);
+        just_unlocked = 1;
         return;
     }
 
     /* Wait until the lock is gone */
-    if (atomic_int_get(&just_unlocked) == 1){
+    if (just_unlocked){
         mwarn(WAITING_MSG);
     } else {
         mdebug1(WAITING_MSG);
     }
 
-    loop_check(&file_status, fn_ptr);
+    while (1) {
+        if (stat(WAIT_FILE, &file_status) == -1) {
+            break;
+        }
 
-    if (atomic_int_get(&just_unlocked) == 1) {
+        /* Sleep LOCK_LOOP seconds and check if lock is gone */
+        sleep(LOCK_LOOP);
+    }
+
+    if (just_unlocked) {
         minfo(WAITING_FREE);
     } else {
         mdebug1(WAITING_FREE);
     }
 
-    atomic_int_set(&just_unlocked, 1);
+    just_unlocked = 1;
 
     return;
 }
 
 #endif /* !WIN32 */
-
-void os_wait() {
-    os_wait_primitive(NULL);
-}
-
-void os_wait_predicate(bool (*fn_ptr)()) {
-    os_wait_primitive(fn_ptr);
-}
-
 
 // Check whether the agent wait mark is on (manager is disconnected)
 

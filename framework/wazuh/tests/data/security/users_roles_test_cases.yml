@@ -227,11 +227,3 @@ remove_users:
       failed_items:
         "5004":
           - 1
-  - params:
-      user_ids:
-        - 999
-    result:
-      affected_items: []
-      failed_items:
-        "5001":
-          - 999

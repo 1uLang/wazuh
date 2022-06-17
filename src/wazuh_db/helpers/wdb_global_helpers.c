@@ -1,6 +1,6 @@
 /*
  * Wazuh SQLite integration
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * July 5, 2016.
  *
  * This program is free software; you can redistribute it
@@ -71,7 +71,7 @@ int wdb_insert_agent(int id,
     data_in = cJSON_CreateObject();
 
     if (!data_in) {
-        mdebug1("Error creating data JSON for Wazuh DB.");
+        mdebug1("Error creating data JSON for Hids DB.");
         return OS_INVALID;
     }
 
@@ -161,7 +161,7 @@ int wdb_update_agent_belongs(int id_group, int id_agent, int *sock) {
     cJSON *data_in = cJSON_CreateObject();
 
     if (!data_in) {
-        mdebug1("Error creating data JSON for Wazuh DB.");
+        mdebug1("Error creating data JSON for Hids DB.");
         return OS_INVALID;
     }
 
@@ -211,7 +211,7 @@ int wdb_update_agent_name(int id, const char *name, int *sock) {
     data_in = cJSON_CreateObject();
 
     if (!data_in) {
-        mdebug1("Error creating data JSON for Wazuh DB.");
+        mdebug1("Error creating data JSON for Hids DB.");
         return OS_INVALID;
     }
 
@@ -265,7 +265,7 @@ int wdb_update_agent_data(agent_info_data *agent_data, int *sock) {
     data_in = cJSON_CreateObject();
 
     if (!data_in) {
-        mdebug1("Error creating data JSON for Wazuh DB.");
+        mdebug1("Error creating data JSON for Hids DB.");
         return OS_INVALID;
     }
 
@@ -341,7 +341,7 @@ int wdb_update_agent_keepalive(int id, const char *connection_status, const char
     data_in = cJSON_CreateObject();
 
     if (!data_in) {
-        mdebug1("Error creating data JSON for Wazuh DB.");
+        mdebug1("Error creating data JSON for Hids DB.");
         return OS_INVALID;
     }
 
@@ -397,7 +397,7 @@ int wdb_update_agent_connection_status(int id, const char *connection_status, co
     data_in = cJSON_CreateObject();
 
     if (!data_in) {
-        mdebug1("Error creating data JSON for Wazuh DB.");
+        mdebug1("Error creating data JSON for Hids DB.");
         return OS_INVALID;
     }
 
@@ -451,7 +451,7 @@ int wdb_update_agent_group(int id, char *group, int *sock) {
     cJSON *data_in = cJSON_CreateObject();
 
     if (!data_in) {
-        mdebug1("Error creating data JSON for Wazuh DB.");
+        mdebug1("Error creating data JSON for Hids DB.");
         return OS_INVALID;
     }
 
@@ -585,7 +585,7 @@ int wdb_find_agent(const char *name, const char *ip, int *sock) {
     data_in = cJSON_CreateObject();
 
     if (!data_in) {
-        mdebug1("Error creating data JSON for Wazuh DB.");
+        mdebug1("Error creating data JSON for Hids DB.");
         return OS_INVALID;
     }
 
@@ -604,7 +604,7 @@ int wdb_find_agent(const char *name, const char *ip, int *sock) {
     }
 
     if (!root) {
-        merror("Error querying Wazuh DB for agent ID.");
+        merror("Error querying Hids DB for agent ID.");
         return OS_INVALID;
     }
 
@@ -634,7 +634,7 @@ cJSON* wdb_get_agent_info(int id, int *sock) {
     }
 
     if (!root) {
-        merror("Error querying Wazuh DB to get the agent's %d information.", id);
+        merror("Error querying Hids DB to get the agent's %d information.", id);
         return NULL;
     }
 
@@ -655,7 +655,7 @@ cJSON* wdb_get_agent_labels(int id, int *sock) {
     }
 
     if (!root) {
-        merror("Error querying Wazuh DB to get the agent's %d labels.", id);
+        merror("Error querying Hids DB to get the agent's %d labels.", id);
         return NULL;
     }
 
@@ -678,7 +678,7 @@ char* wdb_get_agent_name(int id, int *sock) {
     }
 
     if (!root) {
-        merror("Error querying Wazuh DB to get the agent's %d name.", id);
+        merror("Error querying Hids DB to get the agent's %d name.", id);
         return NULL;
     }
 
@@ -709,7 +709,7 @@ char* wdb_get_agent_group(int id, int *sock) {
     }
 
     if (!root) {
-        merror("Error querying Wazuh DB to get the agent's %d group.", id);
+        merror("Error querying Hids DB to get the agent's %d group.", id);
         return NULL;
     }
 
@@ -743,7 +743,7 @@ time_t wdb_get_agent_keepalive(const char *name, const char *ip, int *sock){
     }
 
     if (!root) {
-        merror("Error querying Wazuh DB to get the last agent keepalive.");
+        merror("Error querying Hids DB to get the last agent keepalive.");
         return OS_INVALID;
     }
 
@@ -770,7 +770,7 @@ int wdb_find_group(const char *name, int *sock) {
     }
 
     if (!root) {
-        merror("Error querying Wazuh DB to get the agent group id.");
+        merror("Error querying Hids DB to get the agent group id.");
         return OS_INVALID;
     }
 
@@ -796,7 +796,7 @@ int wdb_update_groups(const char *dirname, int *sock) {
     root = wdbc_query_parse_json(query_sock, global_db_commands[WDB_SELECT_GROUPS], wdboutput, sizeof(wdboutput));
 
     if (!root) {
-        merror("Error querying Wazuh DB to update groups.");
+        merror("Error querying Hids DB to update groups.");
         if (!sock) {
             wdbc_close(&aux_sock);
         }
@@ -900,7 +900,10 @@ int wdb_remove_agent(int id, int *sock) {
     switch (result) {
         case OS_SUCCESS:
             if (WDBC_OK == wdbc_parse_result(wdboutput, &payload)) {
-                if (name && *name && OS_INVALID == wdb_remove_agent_db(id, name)) {
+                result = wdb_delete_agent_belongs(id, query_sock);
+
+                if ((OS_SUCCESS == result) && name && *name &&
+                     OS_INVALID == wdb_remove_agent_db(id, name)) {
                      mdebug1("Unable to remove agent DB: %d - %s", id, name);
                 }
             }
@@ -1079,7 +1082,7 @@ int wdb_reset_agents_connection(const char *sync_status, int *sock) {
     return result;
 }
 
-int* wdb_get_agents_by_connection_status(const char* connection_status, int *sock) {
+int* wdb_get_agents_by_connection_status (const char* connection_status, int *sock) {
     char wdbquery[WDBQUERY_SIZE] = "";
     char wdboutput[WDBOUTPUT_SIZE] = "";
     int last_id = 0;

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (C) 2015, Wazuh Inc.
+# Copyright (C) 2015-2020, Wazuh Inc.
 # Created by Wazuh, Inc. <info@wazuh.com>.
 # This program is free software; you can redistribute it and/or modify it under the terms of GPLv2
 
@@ -11,8 +11,8 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-with patch('wazuh.core.common.wazuh_uid'):
-    with patch('wazuh.core.common.wazuh_gid'):
+with patch('wazuh.core.common.ossec_uid'):
+    with patch('wazuh.core.common.ossec_gid'):
         sys.modules['wazuh.rbac.orm'] = MagicMock()
         import wazuh.rbac.decorators
         from wazuh.tests.util import RBAC_bypasser
@@ -207,7 +207,7 @@ def test_sca_failed_limit(mock_agent, mock_sca_agent):
     with patch('wazuh.core.sca.WazuhDBBackend') as mock_wdb:
         mock_wdb.return_value.connect_to_db.return_value.execute.side_effect = get_fake_sca_data
         with pytest.raises(exception.WazuhException, match=".* 1405 .*"):
-            get_sca_list(agent_list=['000'], limit=common.MAXIMUM_DATABASE_LIMIT + 1)
+            get_sca_list(agent_list=['000'], limit=common.maximum_database_limit + 1)
 
         with pytest.raises(exception.WazuhException, match=".* 1406 .*"):
             get_sca_list(agent_list=['000'], limit=0)

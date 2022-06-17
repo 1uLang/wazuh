@@ -7,8 +7,8 @@ import pytest
 
 with patch('wazuh.core.common.getgrnam'):
     with patch('wazuh.core.common.getpwnam'):
-        with patch('wazuh.core.common.wazuh_uid'):
-            with patch('wazuh.core.common.wazuh_gid'):
+        with patch('wazuh.core.common.ossec_uid'):
+            with patch('wazuh.core.common.ossec_gid'):
                 sys.modules['wazuh.rbac.orm'] = MagicMock()
 
                 from wazuh.core.cluster import utils
@@ -37,12 +37,6 @@ def test_read_cluster_config():
     with patch('wazuh.core.cluster.utils.get_ossec_conf', side_effect=WazuhError(1001)):
         with pytest.raises(WazuhError, match='.* 3006 .*'):
             utils.read_cluster_config()
-
-    with patch('wazuh.core.configuration.load_wazuh_xml', return_value=SystemExit):
-        with pytest.raises(SystemExit) as pytest_wrapped_e:
-            utils.read_cluster_config(from_import=True)
-        assert pytest_wrapped_e.type == SystemExit
-        assert pytest_wrapped_e.value.code == 0
 
     with patch('wazuh.core.cluster.utils.get_ossec_conf', side_effect=KeyError(1)):
         with pytest.raises(WazuhError, match='.* 3006 .*'):
@@ -75,10 +69,8 @@ def test_read_cluster_config():
 
 
 def test_get_manager_status():
-    """Check that get_manager_status function returns the manager status.
-
-    For this test, the status can be stopped or failed.
-    """
+    """Check that get_manager function returns the manager status,
+    for this test, the status can be stopped or failed."""
     status = utils.get_manager_status()
     for value in status.values():
         assert value == 'stopped'
@@ -90,33 +82,10 @@ def test_get_manager_status():
                 assert value == 'failed'
 
 
-@pytest.mark.parametrize('exc', [
-    PermissionError,
-    FileNotFoundError
-])
-@patch('os.stat')
-def test_get_manager_status_ko(mock_stat, exc):
-    """Check that get_manager_status function correctly handles expected exceptions.
-
-    Parameters
-    ----------
-    exc : Exception
-        Expected exception to be handled.
-    """
-    mock_stat.side_effect = exc
-    with pytest.raises(WazuhInternalError, match='.* 1913 .*'):
-        utils.get_manager_status()
-
-
 def test_get_cluster_status():
-    """Check if cluster is enabled and running. Also check that cluster is shown as not running when a
-    WazuhInternalError is raised."""
+    """Check if cluster is enabled and if is running."""
     status = utils.get_cluster_status()
     assert {'enabled': 'no', 'running': 'no'} == status
-
-    with patch('wazuh.core.cluster.utils.get_manager_status', side_effect=WazuhInternalError(1913)):
-        status = utils.get_cluster_status()
-        assert {'enabled': 'no', 'running': 'no'} == status
 
 
 def test_manager_restart():
@@ -126,7 +95,7 @@ def test_manager_restart():
             with pytest.raises(WazuhInternalError, match='.* 1901 .*'):
                 utils.manager_restart()
 
-            with patch('os.path.exists', return_value=True):
+            with patch('wazuh.core.cluster.utils.exists', return_value=True):
                 with pytest.raises(WazuhInternalError, match='.* 1902 .*'):
                     utils.manager_restart()
 
@@ -151,7 +120,7 @@ def test_get_cluster_items():
     assert items == {'files': {'etc/': {'permissions': 416, 'source': 'master', 'files': ['client.keys'],
                                          'recursive': False, 'restart': False, 'remove_subdirs_if_empty': False,
                                          'extra_valid': False, 'description': 'client keys file database'},
-                               'etc/shared/': {'permissions': 432, 'source': 'master', 'files': ['all'],
+                               'etc/shared/': {'permissions': 432, 'source': 'master', 'files': ['merged.mg'],
                                                 'recursive': True, 'restart': False, 'remove_subdirs_if_empty': True,
                                                 'extra_valid': False, 'description': 'shared configuration files'},
                                'var/multigroups/': {'permissions': 432, 'source': 'master', 'files': ['merged.mg'],
@@ -176,15 +145,11 @@ def test_get_cluster_items():
                      'intervals': {'worker': {'sync_integrity': 9, 'sync_agent_info': 10, 'sync_agent_info_ko_retry': 1,
                                               'keep_alive': 60, 'connection_retry': 10,
                                               'max_failed_keepalive_attempts': 2},
-                                   'master': {'timeout_extra_valid': 40, 'recalculate_integrity': 8,
-                                              'check_worker_lastkeepalive': 60,
-                                              'max_allowed_time_without_keepalive': 120, 'process_pool_size': 2,
-                                              'timeout_agent_info': 40, 'max_locked_integrity_time': 1000},
-                                   'communication': {'timeout_cluster_request': 20, 'timeout_dapi_request': 200,
-                                                     'timeout_receiving_file': 120, 'min_zip_size': 31457280,
-                                                     'max_zip_size': 1073741824, 'compress_level': 1,
-                                                     'zip_limit_tolerance': 0.2}},
-                     'distributed_api': {'enabled': True}}
+                                   'master': {'recalculate_integrity': 8, 'check_worker_lastkeepalive': 60,
+                                              'max_allowed_time_without_keepalive': 120},
+                                   'communication': {'timeout_cluster_request': 20, 'timeout_api_request': 200,
+                                                     'timeout_api_exe': 10, 'timeout_receiving_file': 120}},
+                     'sync_options': {'get_agentinfo_newer_than': 1800}, 'distributed_api': {'enabled': True}}
 
 
 def test_ClusterFilter():

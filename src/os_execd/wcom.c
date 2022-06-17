@@ -1,5 +1,5 @@
 /* Remote request listener
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * Jun 07, 2017.
  *
  * This program is free software; you can redistribute it
@@ -63,7 +63,7 @@ size_t wcom_dispatch(char *command, char ** output) {
             return strlen(*output);
         }
 
-    } else if (strcmp(rcv_comm, "restart") == 0 || strcmp(rcv_comm, "restart-wazuh") == 0) {
+    } else if (strcmp(rcv_comm, "restart") == 0 || strcmp(rcv_comm, "restart-hids") == 0) {
         return wcom_restart(output);
     } else if (strcmp(rcv_comm, "lock_restart") == 0) {
         max_restart_lock = 0;
@@ -200,7 +200,7 @@ size_t wcom_restart(char ** output) {
             exec_cmd[1] = "manager";
 #endif
         } else {
-            exec_cmd[0] = "bin/wazuh-control";
+            exec_cmd[0] = "bin/hids-control";
             exec_cmd[1] = "restart";
         }
 
@@ -221,9 +221,9 @@ size_t wcom_restart(char ** output) {
         }
 #else
         static char command[OS_FLSIZE];
-        snprintf(command, sizeof(command), "%s/%s", AR_BINDIR, "restart-wazuh.exe");
+        snprintf(command, sizeof(command), "%s/%s", AR_BINDIR, "restart-hids.exe");
         char *cmd[2] = { command, NULL };
-        char *cmd_parameters = "{\"version\":1,\"origin\":{\"name\":\"\",\"module\":\"wazuh-execd\"},\"command\":\"add\",\"parameters\":{\"extra_args\":[],\"alert\":{},\"program\":\"restart-wazuh.exe\"}}";
+        char *cmd_parameters = "{\"version\":1,\"origin\":{\"name\":\"\",\"module\":\"hids-execd\"},\"command\":\"add\",\"parameters\":{\"extra_args\":[],\"alert\":{},\"program\":\"restart-hids.exe\"}}";
         wfd_t *wfd = wpopenv(cmd[0], cmd, W_BIND_STDIN);
         if (wfd) {
             /* Send alert to AR script */
@@ -319,11 +319,11 @@ error:
 }
 
 size_t wcom_check_manager_config(char **output) {
-    static const char *daemons[] = {"bin/wazuh-authd", "bin/wazuh-remoted",
-                                    "bin/wazuh-execd", "bin/wazuh-analysisd", "bin/wazuh-logcollector",
-                                    "bin/wazuh-integratord", "bin/wazuh-syscheckd", "bin/wazuh-maild",
-                                    "bin/wazuh-modulesd", "bin/wazuh-clusterd", "bin/wazuh-agentlessd",
-                                    "bin/wazuh-integratord", "bin/wazuh-dbd", "bin/wazuh-csyslogd", NULL
+    static const char *daemons[] = {"bin/hids-authd", "bin/hids-remoted",
+                                    "bin/hids-execd", "bin/hids-analysisd", "bin/hids-logcollector",
+                                    "bin/hids-integratord", "bin/hids-syscheckd", "bin/hids-maild",
+                                    "bin/hids-modulesd", "bin/hids-clusterd", "bin/hids-agentlessd",
+                                    "bin/hids-integratord", "bin/wazuh-dbd", "bin/hids-csyslogd", NULL
                                     };
 
     int response_retval = 0;

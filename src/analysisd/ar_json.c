@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2021, Wazuh Inc.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it
@@ -13,7 +13,7 @@
 
 #define VERSION 1
 #ifndef ARGV0
-#define ARGV0 "wazuh-analysisd"
+#define ARGV0 "hids-analysisd"
 #endif
 
 /**
@@ -25,7 +25,7 @@
  * @param[out] temp_msg Message in JSON format.
  * @pre temp_msg is OS_MAXSTR + 1 or more bytes long.
  */
-void getActiveResponseInJSON(const Eventinfo *lf, const active_response *ar, char *extra_args, char *temp_msg, bool escape)
+void getActiveResponseInJSON(const Eventinfo *lf, const active_response *ar, char *extra_args, char *temp_msg)
 {
     cJSON *_object = NULL;
     cJSON *_array = NULL;
@@ -67,31 +67,17 @@ void getActiveResponseInJSON(const Eventinfo *lf, const active_response *ar, cha
     }
 
     // We use the JSON created for the alert and embed it in the message.
-    alert_string = Eventinfo_to_jsonstr(lf, false, NULL);
+    alert_string = Eventinfo_to_jsonstr(lf, false);
     json_alert = cJSON_Parse(alert_string);
     os_free(alert_string);
 
     cJSON_AddItemToObject(_object, "alert", json_alert);
 
     msg = cJSON_PrintUnformatted(message);
-    cJSON_Delete(message);
-
-    if (escape) {
-        char * escaped_exclamation = wstr_replace(msg, "!", "\\\\x21");
-        free(msg);
-        char * escaped_dollar = wstr_replace(escaped_exclamation, "$", "\\\\x24");
-        free(escaped_exclamation);
-        char * escaped_singlequote = wstr_replace(escaped_dollar, "'", "\\\\x27");
-        free(escaped_dollar);
-        char * escaped_backquote = wstr_replace(escaped_singlequote, "`", "\\\\x60");
-        free(escaped_singlequote);
-
-        strncpy(temp_msg, escaped_backquote, OS_MAXSTR);
-        free(escaped_backquote);
-    } else {
-        strncpy(temp_msg, msg, OS_MAXSTR);
-        os_free(msg);
-    }
-
+    strncpy(temp_msg, msg, OS_MAXSTR);
     temp_msg[OS_MAXSTR] = '\0';
+    os_free(msg);
+
+    // Clean up Memory
+    cJSON_Delete(message);
 }

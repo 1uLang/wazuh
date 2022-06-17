@@ -1,5 +1,8 @@
 test_name: GET /overview/agents
 
+marks:
+  - rbac_tests
+
 stages:
 
  - name: Get full agents overview
@@ -81,6 +84,6 @@ stages:
                uname: !anystr
                version: !anystr
              registerIP: any
-             status: disconnected
+             status: active
              version: !anystr
          nodes: !anything

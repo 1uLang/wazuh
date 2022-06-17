@@ -1,6 +1,6 @@
 /*
  * Wazuh Module for AWS S3 integration
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * January 08, 2018.
  *
  * Updated by Jeremy Phillips <jeremy@uranusbytes.com>
@@ -13,23 +13,19 @@
 
 #include "wmodules.h"
 
-#ifdef WAZUH_UNIT_TESTING
+#ifdef HIDS_UNIT_TESTING
 /* Remove static qualifier when testing */
 #define static
 #endif
 
 static wm_aws *aws_config;                              // Pointer to aws_configuration
-#ifdef WIN32
-static DWORD WINAPI wm_aws_main(void *arg);             // Module main function. It won't return
-static DWORD WINAPI wm_aws_destroy(void *aws_config);   // Destroy data
-#else
+
 static void* wm_aws_main(wm_aws *aws_config);           // Module main function. It won't return
-static void wm_aws_destroy(wm_aws *aws_config);         // Destroy data
-#endif
 static void wm_aws_setup(wm_aws *_aws_config);          // Setup module
 static void wm_aws_check();                             // Check configuration, disable flag
 static void wm_aws_run_s3(wm_aws *aws_config, wm_aws_bucket *bucket);       // Run a s3 bucket
 static void wm_aws_run_service(wm_aws *aws_config, wm_aws_service *service);// Run a AWS service such as Inspector
+static void wm_aws_destroy(wm_aws *aws_config);         // Destroy data
 cJSON *wm_aws_dump(const wm_aws *aws_config);
 
 // Command module context definition
@@ -44,12 +40,8 @@ const wm_context WM_AWS_CONTEXT = {
 };
 
 // Module module main function. It won't return.
-#ifdef WIN32
-DWORD WINAPI wm_aws_main(void *arg) {
-    wm_aws *aws_config = (wm_aws *)arg;
-#else
+
 void* wm_aws_main(wm_aws *aws_config) {
-#endif
     wm_aws_bucket *cur_bucket;
     wm_aws_service *cur_service;
     char *log_info;
@@ -97,11 +89,6 @@ void* wm_aws_main(wm_aws *aws_config) {
             if (cur_bucket->trail_prefix) {
                 wm_strcat(&log_info, ", Path:", '\0');
                 wm_strcat(&log_info, cur_bucket->trail_prefix, ' ');
-            }
-
-            if (cur_bucket->trail_suffix) {
-                wm_strcat(&log_info, ", Path suffix:", '\0');
-                wm_strcat(&log_info, cur_bucket->trail_suffix, ' ');
             }
 
             if (cur_bucket->type) {
@@ -175,11 +162,7 @@ void* wm_aws_main(wm_aws *aws_config) {
 
     } while (FOREVER());
 
-#ifdef WIN32
-    return 0;
-#else
     return NULL;
-#endif
 }
 
 
@@ -205,19 +188,13 @@ cJSON *wm_aws_dump(const wm_aws *aws_config) {
             if (iter->secret_key) cJSON_AddStringToObject(buck,"secret_key",iter->secret_key);
             if (iter->aws_profile) cJSON_AddStringToObject(buck,"aws_profile",iter->aws_profile);
             if (iter->iam_role_arn) cJSON_AddStringToObject(buck,"iam_role_arn",iter->iam_role_arn);
-            if (iter->iam_role_duration) cJSON_AddStringToObject(buck, "iam_role_duration",iter->iam_role_duration);
             if (iter->aws_account_id) cJSON_AddStringToObject(buck,"aws_account_id",iter->aws_account_id);
             if (iter->aws_account_alias) cJSON_AddStringToObject(buck,"aws_account_alias",iter->aws_account_alias);
             if (iter->trail_prefix) cJSON_AddStringToObject(buck,"path",iter->trail_prefix);
-            if (iter->trail_suffix) cJSON_AddStringToObject(buck,"path_suffix",iter->trail_suffix);
             if (iter->only_logs_after) cJSON_AddStringToObject(buck,"only_logs_after",iter->only_logs_after);
             if (iter->regions) cJSON_AddStringToObject(buck,"regions",iter->regions);
             if (iter->type) cJSON_AddStringToObject(buck,"type",iter->type);
             if (iter->remove_from_bucket) cJSON_AddStringToObject(buck,"remove_from_bucket","yes"); else cJSON_AddStringToObject(buck,"remove_from_bucket","no");
-            if (iter->discard_field) cJSON_AddStringToObject(buck,"discard_field",iter->discard_field);
-            if (iter->discard_regex) cJSON_AddStringToObject(buck,"discard_regex",iter->discard_regex);
-            if (iter->sts_endpoint) cJSON_AddStringToObject(buck,"sts_endpoint",iter->sts_endpoint);
-            if (iter->service_endpoint) cJSON_AddStringToObject(buck,"service_endpoint",iter->service_endpoint);
             cJSON_AddItemToArray(arr_buckets,buck);
         }
         if (cJSON_GetArraySize(arr_buckets) > 0) {
@@ -236,17 +213,12 @@ cJSON *wm_aws_dump(const wm_aws *aws_config) {
             if (iter->secret_key) cJSON_AddStringToObject(service,"secret_key",iter->secret_key);
             if (iter->aws_profile) cJSON_AddStringToObject(service,"aws_profile",iter->aws_profile);
             if (iter->iam_role_arn) cJSON_AddStringToObject(service,"iam_role_arn",iter->iam_role_arn);
-            if (iter->iam_role_duration) cJSON_AddStringToObject(service, "iam_role_duration",iter->iam_role_duration);
             if (iter->aws_account_id) cJSON_AddStringToObject(service,"aws_account_id",iter->aws_account_id);
             if (iter->aws_account_alias) cJSON_AddStringToObject(service,"aws_account_alias",iter->aws_account_alias);
             if (iter->only_logs_after) cJSON_AddStringToObject(service,"only_logs_after",iter->only_logs_after);
             if (iter->regions) cJSON_AddStringToObject(service,"regions",iter->regions);
             if (iter->aws_log_groups) cJSON_AddStringToObject(service,"aws_log_groups",iter->aws_log_groups);
             if (iter->remove_log_streams) cJSON_AddStringToObject(service,"remove_log_streams","yes"); else cJSON_AddStringToObject(service,"remove_log_streams","no");
-            if (iter->discard_field) cJSON_AddStringToObject(service,"discard_field",iter->discard_field);
-            if (iter->discard_regex) cJSON_AddStringToObject(service,"discard_regex",iter->discard_regex);
-            if (iter->sts_endpoint) cJSON_AddStringToObject(service,"sts_endpoint",iter->sts_endpoint);
-            if (iter->service_endpoint) cJSON_AddStringToObject(service,"service_endpoint",iter->service_endpoint);
             cJSON_AddItemToArray(arr_services,service);
         }
         if (cJSON_GetArraySize(arr_services) > 0) {
@@ -262,15 +234,9 @@ cJSON *wm_aws_dump(const wm_aws *aws_config) {
 
 
 // Destroy data
-#ifdef WIN32
-DWORD WINAPI wm_aws_destroy(void *aws_config) {         // Destroy data
-#else
+
 void wm_aws_destroy(wm_aws *aws_config) {
-#endif
     free(aws_config);
-    #ifdef WIN32
-    return 0;
-    #endif
 }
 
 // Setup module
@@ -321,7 +287,7 @@ void wm_aws_check() {
 }
 
 // Run a bucket parsing
-#ifdef WAZUH_UNIT_TESTING
+#ifdef HIDS_UNIT_TESTING
 __attribute__((weak))
 #endif
 void wm_aws_run_s3(wm_aws *aws_config, wm_aws_bucket *exec_bucket) {
@@ -368,10 +334,6 @@ void wm_aws_run_s3(wm_aws *aws_config, wm_aws_bucket *exec_bucket) {
         wm_strcat(&command, "--iam_role_arn", ' ');
         wm_strcat(&command, exec_bucket->iam_role_arn, ' ');
     }
-    if (exec_bucket->iam_role_duration){
-        wm_strcat(&command, "--iam_role_duration", ' ');
-        wm_strcat(&command, exec_bucket->iam_role_duration, ' ');
-    }
     if (exec_bucket->aws_organization_id) {
         wm_strcat(&command, "--aws_organization_id", ' ');
         wm_strcat(&command, exec_bucket->aws_organization_id, ' ');
@@ -388,10 +350,6 @@ void wm_aws_run_s3(wm_aws *aws_config, wm_aws_bucket *exec_bucket) {
         wm_strcat(&command, "--trail_prefix", ' ');
         wm_strcat(&command, exec_bucket->trail_prefix, ' ');
     }
-    if (exec_bucket->trail_suffix) {
-        wm_strcat(&command, "--trail_suffix", ' ');
-        wm_strcat(&command, exec_bucket->trail_suffix, ' ');
-    }
     if (exec_bucket->only_logs_after) {
         wm_strcat(&command, "--only_logs_after", ' ');
         wm_strcat(&command, exec_bucket->only_logs_after, ' ');
@@ -399,22 +357,6 @@ void wm_aws_run_s3(wm_aws *aws_config, wm_aws_bucket *exec_bucket) {
     if (exec_bucket->regions) {
         wm_strcat(&command, "--regions", ' ');
         wm_strcat(&command, exec_bucket->regions, ' ');
-    }
-    if (exec_bucket->discard_field) {
-        wm_strcat(&command, "--discard-field", ' ');
-        wm_strcat(&command, exec_bucket->discard_field, ' ');
-    }
-    if (exec_bucket->discard_regex) {
-        wm_strcat(&command, "--discard-regex", ' ');
-        wm_strcat(&command, exec_bucket->discard_regex, ' ');
-    }
-    if (exec_bucket->sts_endpoint) {
-        wm_strcat(&command, "--sts_endpoint", ' ');
-        wm_strcat(&command, exec_bucket->sts_endpoint, ' ');
-    }
-    if (exec_bucket->service_endpoint) {
-        wm_strcat(&command, "--service_endpoint", ' ');
-        wm_strcat(&command, exec_bucket->service_endpoint, ' ');
     }
     if (exec_bucket->type) {
         wm_strcat(&command, "--type", ' ');
@@ -544,10 +486,6 @@ void wm_aws_run_service(wm_aws *aws_config, wm_aws_service *exec_service) {
         wm_strcat(&command, "--iam_role_arn", ' ');
         wm_strcat(&command, exec_service->iam_role_arn, ' ');
     }
-    if (exec_service->iam_role_duration){
-        wm_strcat(&command, "--iam_role_duration", ' ');
-        wm_strcat(&command, exec_service->iam_role_duration, ' ');
-    }
     if (exec_service->aws_account_id) {
         wm_strcat(&command, "--aws_account_id", ' ');
         wm_strcat(&command, exec_service->aws_account_id, ' ');
@@ -570,22 +508,6 @@ void wm_aws_run_service(wm_aws *aws_config, wm_aws_service *exec_service) {
     }
     if (exec_service->remove_log_streams) {
         wm_strcat(&command, "--remove-log-streams", ' ');
-    }
-    if (exec_service->discard_field) {
-        wm_strcat(&command, "--discard-field", ' ');
-        wm_strcat(&command, exec_service->discard_field, ' ');
-    }
-    if (exec_service->discard_regex) {
-        wm_strcat(&command, "--discard-regex", ' ');
-        wm_strcat(&command, exec_service->discard_regex, ' ');
-    }
-    if (exec_service->sts_endpoint) {
-        wm_strcat(&command, "--sts_endpoint", ' ');
-        wm_strcat(&command, exec_service->sts_endpoint, ' ');
-    }
-    if (exec_service->service_endpoint) {
-        wm_strcat(&command, "--service_endpoint", ' ');
-        wm_strcat(&command, exec_service->service_endpoint, ' ');
     }
     if (isDebug()) {
         wm_strcat(&command, "--debug", ' ');

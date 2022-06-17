@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it
@@ -13,7 +13,7 @@
 
 
 // Remove static qualifier from tests
-#ifdef WAZUH_UNIT_TESTING
+#ifdef HIDS_UNIT_TESTING
 
 #ifdef WIN32
 #include "../unit_tests/wrappers/windows/libc/stdio_wrappers.h"
@@ -66,11 +66,10 @@ int fim_diff_registry_tmp(const char *value_data,
  * @brief Initializes the structure with the data needed for diff
  *
  * @param filename Path of file monitored
- * @param configuration Configuration associated with the file
  *
  * @return Structure with all the data necessary to compute differences
  */
-diff_data *initialize_file_diff_data(const char *filename, const directory_t *configuration);
+diff_data *initialize_file_diff_data(const char *filename);
 
 /**
  * @brief Free the structure with the data needed for diff
@@ -390,13 +389,13 @@ int fim_diff_registry_tmp(const char *value_data,
 
 #endif
 
-char *fim_file_diff(const char *filename, const directory_t *configuration) {
+char *fim_file_diff(const char *filename) {
 
     char *diff_changes = NULL;
     int limits_reached;
 
     // Generate diff structure
-    diff_data *diff = initialize_file_diff_data(filename, configuration);
+    diff_data *diff = initialize_file_diff_data(filename);
     if (!diff){
         return NULL;
     }
@@ -460,7 +459,7 @@ cleanup:
 }
 
 
-diff_data *initialize_file_diff_data(const char *filename, const directory_t *configuration){
+diff_data *initialize_file_diff_data(const char *filename){
     diff_data *diff;
     char buffer[PATH_MAX];
     char abs_diff_dir_path[PATH_MAX + 1];
@@ -471,7 +470,8 @@ diff_data *initialize_file_diff_data(const char *filename, const directory_t *co
     diff->file_size = 0;
 
     if (syscheck.file_size_enabled) {
-        diff->size_limit = configuration->diff_size_limit;
+        int it = fim_configuration_directory(filename);
+        diff->size_limit = syscheck.diff_size_limit[it];
     }
 
     // Get absolute path of filename:

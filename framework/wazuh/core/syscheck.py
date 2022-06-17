@@ -1,12 +1,10 @@
-# Copyright (C) 2015, Wazuh Inc.
+# Copyright (C) 2015-2019, Wazuh Inc.
 # Created by Wazuh, Inc. <info@wazuh.com>.
 # This program is free software; you can redistribute it and/or modify it under the terms of GP
 
-from json import loads, JSONDecodeError
+from datetime import datetime
 
-from wazuh.core.utils import WazuhDBQuery, WazuhDBBackend, get_fields_to_nest, plain_dict_to_nested_dict, \
-    get_date_from_timestamp
-from wazuh.core.wdb import WazuhDBConnection
+from wazuh.core.utils import WazuhDBQuery, WazuhDBBackend, get_fields_to_nest, plain_dict_to_nested_dict
 
 
 class WazuhDBQuerySyscheck(WazuhDBQuery):
@@ -21,17 +19,22 @@ class WazuhDBQuerySyscheck(WazuhDBQuery):
                          *args, **kwargs)
         self.nested = nested
 
+    def _filter_date(self, date_filter, filter_db_name):
+        # dates are stored as timestamps
+        try:
+            date_filter['value'] = int(datetime.timestamp(datetime.strptime(date_filter['value'], "%Y-%m-%d %H:%M:%S")))
+        except ValueError:
+            date_filter['value'] = int(datetime.timestamp(datetime.strptime(date_filter['value'], "%Y-%m-%d")))
+        self.query += "{0} IS NOT NULL AND {0} {1} :{2}".format(self.fields[filter_db_name], date_filter['operator'],
+                                                                date_filter['field'])
+        self.request[date_filter['field']] = date_filter['value']
+
     def _format_data_into_dictionary(self):
         def format_fields(field_name, value):
             if field_name == 'mtime' or field_name == 'date':
-                return get_date_from_timestamp(value)
-            elif field_name == 'end' or field_name == 'start':
-                return None if not value else get_date_from_timestamp(value)
-            elif field_name == 'perm':
-                try:
-                    return loads(value)
-                except JSONDecodeError:
-                    return value
+                return datetime.utcfromtimestamp(value)
+            if field_name == 'end' or field_name == 'start':
+                return None if not value else datetime.utcfromtimestamp(value)
             else:
                 return value
 
@@ -43,7 +46,3 @@ class WazuhDBQuerySyscheck(WazuhDBQuery):
                           self._data]
 
         return super()._format_data_into_dictionary()
-
-
-def syscheck_delete_agent(agent: str, wdb_conn: WazuhDBConnection) -> None:
-    wdb_conn.execute(f"agent {agent} sql delete from fim_entry", delete=True)

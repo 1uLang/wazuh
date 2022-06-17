@@ -1,23 +1,22 @@
 #!/usr/bin/env python
 
-# Copyright (C) 2015, Wazuh Inc.
+# Copyright (C) 2015-2020, Wazuh Inc.
 # Created by Wazuh, Inc. <info@wazuh.com>.
 # This program is free software; you can redistribute it and/or modify it under the terms of GPLv2
 
-import argparse
-import atexit
-import json
-import logging
 import os
-import socket
-import struct
 import subprocess
 import sys
+import socket
+import logging
+import json
+import argparse
+import atexit
+import struct
 import textwrap
-
-from wazuh.core import common
 from wazuh.core.common import LOGTEST_SOCKET
 
+from wazuh.core import common
 
 def init_argparse():
     """Setup argpase for handle command line parameters
@@ -54,11 +53,6 @@ def init_argparse():
         dest='quiet',
         action="store_true"
     )
-    parser.add_argument(
-        '-v', help='Verbose (full) output/rule debugging',
-        dest='verbose',
-        action='store_true'
-    )
     return parser
 
 
@@ -83,10 +77,6 @@ def main():
             logging.error('Unit test configuration wrong syntax: %s', args.ut)
             sys.exit(1)
 
-    options = dict()
-    if args.verbose:
-        options['rules_debug'] = True
-
     # Initialize wazuh-logtest component
     w_logtest = WazuhLogtest(location=args.location)
     logging.info('Starting wazuh-logtest %s', Wazuh.get_version_str())
@@ -96,8 +86,7 @@ def main():
     atexit.register(w_logtest.remove_last_session)
 
     # Main processing loop
-    session_token = str()
-
+    session_token = ''
     while True:
         # Get user input
         try:
@@ -122,7 +111,7 @@ def main():
 
         # Process log event
         try:
-            output = w_logtest.process_log(event, session_token, options)
+            output = w_logtest.process_log(event, session_token)
         except ValueError as error:
             logging.error('** Wazuh-logtest error ' + str(error))
             continue
@@ -133,16 +122,6 @@ def main():
         # Check and alert to user if new session was created
         if session_token and session_token != output['token']:
             logging.warning('New session was created with token "%s"', output['token'])
-
-        # Show the warning messages
-        if 'messages' in output.keys():
-            do_print_newline = False
-            for message in output['messages']:
-                if message.startswith("WARNING"):
-                    logging.warning('** Wazuh-Logtest: %s', message)
-                    do_print_newline = True
-            if do_print_newline:
-                    logging.warning('')
 
         # Continue using last available session
         session_token = output['token']
@@ -255,7 +234,7 @@ class WazuhLogtest:
         self.last_token = ""
         self.ut = [''] * 3
 
-    def process_log(self, log, token=None, options=None):
+    def process_log(self, log, token=None):
         """Send log event to wazuh-logtest and receive the outcome
 
         Args:
@@ -273,9 +252,6 @@ class WazuhLogtest:
         if token:
             data['token'] = token
         data['event'] = log
-
-        if options:
-            data['options'] = options
 
         # Create a wrapper to log_processing
         request = self.protocol.wrap('log_processing', data)
@@ -379,16 +355,7 @@ class WazuhLogtest:
                 WazuhLogtest.show_phase_info(output_data['data'])
         else:
             logging.info('\tNo decoder matched.')
-
         # Rule phase
-
-        ## Rules Debugging
-        if 'rules_debug' in output:
-            logging.info('')
-            logging.info('**Rule debugging:')
-            for debug_msg in output['rules_debug']:
-                logging.info(('\t\t' if debug_msg[0] == '*' else '\t') + debug_msg)
-
         if 'rule' in output_data:
             logging.info('')
             logging.info('**Phase 3: Completed filtering (rules).')

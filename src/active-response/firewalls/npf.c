@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2021, Wazuh Inc.
  * All right reserved.
  *
  * This program is free software; you can redistribute it
@@ -123,7 +123,7 @@ int main (int argc, char **argv) {
 
     flag = false;
     while (fgets(output_buf, OS_MAXSTR, wfd->file_out)) {
-        const char *pos = strstr(output_buf, "table <wazuh_blacklist>");
+        const char *pos = strstr(output_buf, "table <hids_blacklist>");
 
         if (pos != NULL) {
             flag = true;
@@ -134,7 +134,7 @@ int main (int argc, char **argv) {
 
     if (flag == false) {
         memset(log_msg, '\0', OS_MAXSTR);
-        snprintf(log_msg, OS_MAXSTR -1, "Unable to find 'table <wazuh_blacklist>'");
+        snprintf(log_msg, OS_MAXSTR -1, "Unable to find 'table <hids_blacklist>'");
         write_debug_file(argv[0], log_msg);
         cJSON_Delete(input_json);
         return OS_INVALID;
@@ -143,10 +143,10 @@ int main (int argc, char **argv) {
     char *exec_cmd2[6] = { NULL, NULL, NULL, NULL, NULL, NULL };
 
     if (action == ADD_COMMAND) {
-        const char *arg3[6] = { NPFCTL, "table", "wazuh_blacklist", "add", srcip, NULL };
+        const char *arg3[6] = { NPFCTL, "table", "hdis_blacklist", "add", srcip, NULL };
         memcpy(exec_cmd2, arg3, sizeof(exec_cmd2));
     } else {
-        const char *arg3[6] = { NPFCTL, "table", "wazuh_blacklist", "del", srcip, NULL };
+        const char *arg3[6] = { NPFCTL, "table", "hids", "del", srcip, NULL };
         memcpy(exec_cmd2, arg3, sizeof(exec_cmd2));
     }
 

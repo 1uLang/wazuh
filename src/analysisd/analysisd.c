@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2010-2012 Trend Micro Inc.
  * All rights reserved.
  *
@@ -13,7 +13,7 @@
  */
 
 #ifndef ARGV0
-#define ARGV0 "wazuh-analysisd"
+#define ARGV0 "hids-analysisd"
 #endif
 
 #include "shared.h"
@@ -266,7 +266,7 @@ static void help_analysisd(char * home_path)
 }
 
 #ifndef TESTRULE
-#ifdef WAZUH_UNIT_TESTING
+#ifdef HIDS_UNIT_TESTING
 __attribute((weak))
 #endif
 int main(int argc, char **argv)
@@ -372,7 +372,7 @@ int main_analysisd(int argc, char **argv)
         }
     }
 
-    mdebug1(WAZUH_HOMEDIR, home_path);
+    mdebug1(HIDS_HOMEDIR, home_path);
 
     /* Start daemon */
     DEBUG_MSG("%s: DEBUG: Starting on debug mode - %d ", ARGV0, (int)time(0));
@@ -430,7 +430,7 @@ int main_analysisd(int argc, char **argv)
     /* Get server's hostname */
     memset(__shost, '\0', 512);
     if (gethostname(__shost, 512 - 1) != 0) {
-        strncpy(__shost, WAZUH_SERVER, 512 - 1);
+        strncpy(__shost, HIDS_SERVER, 512 - 1);
     } else {
         char *_ltmp;
 
@@ -814,7 +814,7 @@ int main_analysisd(int argc, char **argv)
     w_create_thread(asyscom_main, NULL);
 
     /* Load Mitre JSON File and Mitre hash table */
-    mitre_load();
+    mitre_load(NULL);
 
     /* Initialize Logtest */
     w_create_thread(w_logtest_init, NULL);
@@ -876,8 +876,26 @@ void OS_ReadMSG_analysisd(int m_queue)
         if (Config.ar & REMOTE_AR) {
             if ((arq = StartMQ(ARQUEUE, WRITE, 1)) < 0) {
                 merror(ARQ_ERROR);
+
+                /* If LOCAL_AR is set, keep it there */
+                if (Config.ar & LOCAL_AR) {
+                    Config.ar = 0;
+                    Config.ar |= LOCAL_AR;
+                } else {
+                    Config.ar = 0;
+                }
             } else {
                 minfo(CONN_TO, ARQUEUE, "active-response");
+            }
+        }
+#else
+        /* Only for LOCAL_ONLY installs */
+        if (Config.ar & REMOTE_AR) {
+            if (Config.ar & LOCAL_AR) {
+                Config.ar = 0;
+                Config.ar |= LOCAL_AR;
+            } else {
+                Config.ar = 0;
             }
         }
 #endif
@@ -885,6 +903,14 @@ void OS_ReadMSG_analysisd(int m_queue)
         if (Config.ar & LOCAL_AR) {
             if ((execdq = StartMQ(EXECQUEUE, WRITE, 1)) < 0) {
                 merror(ARQ_ERROR);
+
+                /* If REMOTE_AR is set, keep it there */
+                if (Config.ar & REMOTE_AR) {
+                    Config.ar = 0;
+                    Config.ar |= REMOTE_AR;
+                } else {
+                    Config.ar = 0;
+                }
             } else {
                 minfo(CONN_TO, EXECQUEUE, "exec");
             }
@@ -906,7 +932,7 @@ void OS_ReadMSG_analysisd(int m_queue)
         os_calloc(1, sizeof(Eventinfo), lf);
         os_calloc(Config.decoder_order_size, sizeof(DynamicField), lf->fields);
         lf->year = prev_year;
-        memset(lf->mon, 0, sizeof(lf->mon));
+        strncpy(lf->mon, prev_month, 3);
         lf->day = today;
 
         if (OS_GetLogLocation(today, prev_year, prev_month) < 0) {
@@ -2017,7 +2043,7 @@ void * w_process_event_thread(__attribute__((unused)) void * id){
 
             /* Check each rule */
             else if (t_currently_rule = OS_CheckIfRuleMatch(lf, os_analysisd_last_events, &os_analysisd_cdblists,
-                     rulenode_pt, &rule_match, &os_analysisd_fts_list, &os_analysisd_fts_store, true, NULL), !t_currently_rule) {
+                     rulenode_pt, &rule_match, &os_analysisd_fts_list, &os_analysisd_fts_store, true), !t_currently_rule) {
 
                 continue;
             }
@@ -2093,8 +2119,8 @@ void * w_process_event_thread(__attribute__((unused)) void * id){
                         do_ar = 0;
                     }
 
-                    if (do_ar) {
-                        OS_Exec(&execdq, &arq, &sock, lf, *rule_ar);
+                    if (do_ar && execdq >= 0) {
+                        OS_Exec(execdq, &arq, &sock, lf, *rule_ar);
                     }
                     rule_ar++;
                 }
@@ -2204,7 +2230,7 @@ void * w_log_rotate_thread(__attribute__((unused)) void * args){
                 }
 
                 today = day;
-                memcpy(prev_month, mon, sizeof(mon));
+                strncpy(prev_month, mon, 3);
                 prev_year = year;
             }
         }
@@ -2350,47 +2376,47 @@ void w_get_initial_queues_size(){
 
 void w_init_queues(){
      /* Init the archives writer queue */
-    writer_queue = queue_init(getDefine_Int("analysisd", "archives_queue_size", 128, 2000000));
+    writer_queue = queue_init(getDefine_Int("analysisd", "archives_queue_size", 0, 2000000));
 
     /* Init the alerts log writer queue */
-    writer_queue_log = queue_init(getDefine_Int("analysisd", "alerts_queue_size", 128, 2000000));
+    writer_queue_log = queue_init(getDefine_Int("analysisd", "alerts_queue_size", 0, 2000000));
 
     /* Init statistical the log writer queue */
-    writer_queue_log_statistical = queue_init(getDefine_Int("analysisd", "statistical_queue_size", 128, 2000000));
+    writer_queue_log_statistical = queue_init(getDefine_Int("analysisd", "statistical_queue_size", 0, 2000000));
 
     /* Init the firewall log writer queue */
-    writer_queue_log_firewall = queue_init(getDefine_Int("analysisd", "firewall_queue_size", 128, 2000000));
+    writer_queue_log_firewall = queue_init(getDefine_Int("analysisd", "firewall_queue_size", 0, 2000000));
 
     /* Init the FTS log writer queue */
-    writer_queue_log_fts = queue_init(getDefine_Int("analysisd", "fts_queue_size", 128, 2000000));
+    writer_queue_log_fts = queue_init(getDefine_Int("analysisd", "fts_queue_size", 0, 2000000));
 
     /* Init the decode syscheck queue input */
-    decode_queue_syscheck_input = queue_init(getDefine_Int("analysisd", "decode_syscheck_queue_size", 128, 2000000));
+    decode_queue_syscheck_input = queue_init(getDefine_Int("analysisd", "decode_syscheck_queue_size", 0, 2000000));
 
     /* Init the decode syscollector queue input */
-    decode_queue_syscollector_input = queue_init(getDefine_Int("analysisd", "decode_syscollector_queue_size", 128, 2000000));
+    decode_queue_syscollector_input = queue_init(getDefine_Int("analysisd", "decode_syscollector_queue_size", 0, 2000000));
 
     /* Init the decode rootcheck queue input */
-    decode_queue_rootcheck_input = queue_init(getDefine_Int("analysisd", "decode_rootcheck_queue_size", 128, 2000000));
+    decode_queue_rootcheck_input = queue_init(getDefine_Int("analysisd", "decode_rootcheck_queue_size", 0, 2000000));
 
     /* Init the decode rootcheck json queue input */
-    decode_queue_sca_input = queue_init(getDefine_Int("analysisd", "decode_sca_queue_size", 128, 2000000));
+    decode_queue_sca_input = queue_init(getDefine_Int("analysisd", "decode_sca_queue_size", 0, 2000000));
 
     /* Init the decode hostinfo queue input */
-    decode_queue_hostinfo_input = queue_init(getDefine_Int("analysisd", "decode_hostinfo_queue_size", 128, 2000000));
+    decode_queue_hostinfo_input = queue_init(getDefine_Int("analysisd", "decode_hostinfo_queue_size", 0, 2000000));
 
     /* Init the decode winevt queue input */
-    decode_queue_winevt_input = queue_init(getDefine_Int("analysisd", "decode_winevt_queue_size", 128, 2000000));
+    decode_queue_winevt_input = queue_init(getDefine_Int("analysisd", "decode_winevt_queue_size", 0, 2000000));
 
     /* Init the decode event queue input */
-    decode_queue_event_input = queue_init(getDefine_Int("analysisd", "decode_event_queue_size", 128, 2000000));
+    decode_queue_event_input = queue_init(getDefine_Int("analysisd", "decode_event_queue_size", 0, 2000000));
 
     /* Init the decode event queue output */
-    decode_queue_event_output = queue_init(getDefine_Int("analysisd", "decode_output_queue_size", 128, 2000000));
+    decode_queue_event_output = queue_init(getDefine_Int("analysisd", "decode_output_queue_size", 0, 2000000));
 
     /* Initialize database synchronization message queue */
-    dispatch_dbsync_input = queue_init(getDefine_Int("analysisd", "dbsync_queue_size", 128, 2000000));
+    dispatch_dbsync_input = queue_init(getDefine_Int("analysisd", "dbsync_queue_size", 0, 2000000));
 
     /* Initialize upgrade module message queue */
-    upgrade_module_input = queue_init(getDefine_Int("analysisd", "upgrade_queue_size", 128, 2000000));
+    upgrade_module_input = queue_init(getDefine_Int("analysisd", "upgrade_queue_size", 0, 2000000));
 }

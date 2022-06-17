@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All rights reserved.
  *
@@ -26,7 +26,7 @@ static void help_csyslogd(char * home_path)
     print_out("                to increase the debug level.");
     print_out("    -t          Test configuration");
     print_out("    -f          Run in foreground");
-    print_out("    -u <user>   User to run as (default: %s)", USER);
+    print_out("    -u <user>   User to run as (default: %s)", MAILUSER);
     print_out("    -g <group>  Group to run as (default: %s)", GROUPGLOBAL);
     print_out("    -c <config> Configuration file to use (default: %s)", OSSECCONF);
     print_out("    -D <dir>    Directory to chroot and chdir into (default: %s)", home_path);
@@ -41,8 +41,8 @@ int main(int argc, char **argv)
     uid_t uid;
     gid_t gid;
 
-    /* Use USER (read only) */
-    const char *user = USER;
+    /* Use MAILUSER (read only) */
+    const char *user = MAILUSER;
     const char *group = GROUPGLOBAL;
     const char *cfg = OSSECCONF;
 
@@ -104,7 +104,7 @@ int main(int argc, char **argv)
     if (chdir(home_path) == -1) {
         merror_exit(CHDIR_ERROR, home_path, errno, strerror(errno));
     }
-    mdebug1(WAZUH_HOMEDIR, home_path);
+    mdebug1(HIDS_HOMEDIR, home_path);
 
     /* Check if the user/group given are valid */
     uid = Privsep_GetUser(user);
@@ -155,6 +155,14 @@ int main(int argc, char **argv)
     if (Privsep_SetGroup(gid) < 0) {
         merror_exit(SETGID_ERROR, group, errno, strerror(errno));
     }
+
+    /* chroot */
+    if (Privsep_Chroot(home_path) < 0) {
+        merror_exit(CHROOT_ERROR, home_path, errno, strerror(errno));
+    }
+
+    /* Now in chroot */
+    nowChroot();
 
     /* Change user */
     if (Privsep_SetUser(uid) < 0) {

@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All rights reserved.
  *
@@ -8,20 +8,16 @@
  * Foundation
  */
 
-#include "cJSON.h"
 #include "shared.h"
 #include "os_crypto/sha256/sha256_op.h"
 #include "../os_net/os_net.h"
 #include "../addagent/manage_agents.h"
 #include "syscheckd/syscheck.h"
-#include "config/authd-config.h"
-#include "os_auth/auth.h"
 
-#ifdef WAZUH_UNIT_TESTING
+#ifdef HIDS_UNIT_TESTING
 #define static
 #endif
 
-static pthread_mutex_t restart_mutex = PTHREAD_MUTEX_INITIALIZER;
 /// Pending restart bit field
 static struct {
     unsigned syscheck:1;
@@ -55,7 +51,7 @@ static cJSON* w_create_agent_add_payload(const char *name,
                                          const char *key_hash,
                                          const char *key,
                                          const char *id,
-                                         authd_force_options_t *force_options);
+                                         const int force);
 
 
 /* Check if syscheck is to be executed/restarted
@@ -63,10 +59,8 @@ static cJSON* w_create_agent_add_payload(const char *name,
  */
 int os_check_restart_syscheck()
 {
-    w_mutex_lock(&restart_mutex);
     int current = os_restart.syscheck;
     os_restart.syscheck = 0;
-    w_mutex_unlock(&restart_mutex);
     return current;
 }
 
@@ -75,20 +69,16 @@ int os_check_restart_syscheck()
  */
 int os_check_restart_rootcheck()
 {
-    w_mutex_lock(&restart_mutex);
     int current = os_restart.rootcheck;
     os_restart.rootcheck = 0;
-    w_mutex_unlock(&restart_mutex);
     return current;
 }
 
 /* Set syscheck and rootcheck to be restarted */
 void os_set_restart_syscheck()
 {
-    w_mutex_lock(&restart_mutex);
     os_restart.syscheck = 1;
     os_restart.rootcheck = 1;
-    w_mutex_unlock(&restart_mutex);
 }
 
 /* Read the agent name for the current agent
@@ -343,6 +333,98 @@ int set_agent_group(const char * id, const char * group) {
 
     return r;
 }
+
+int set_agent_multigroup(char * group) {
+    int oldmask;
+    char *multigroup = strchr(group,MULTIGROUP_SEPARATOR);
+
+    if (!multigroup) {
+        return 0;
+    }
+
+    char *endl = strchr(group, '\n');
+
+    if (endl) {
+        *endl = '\0';
+    }
+
+    /* Remove multigroup if it's not used on any other agent */
+    w_remove_multigroup(group);
+
+    /* Check if the multigroup dir is created */
+    os_sha256 multi_group_hash;
+    char multigroup_path[PATH_MAX + 1] = {0};
+    OS_SHA256_String(group,multi_group_hash);
+    char _hash[9] = {0};
+
+    strncpy(_hash,multi_group_hash,8);
+    snprintf(multigroup_path, PATH_MAX, "%s/%s" , MULTIGROUPS_DIR, _hash);
+    DIR *dp;
+    dp = opendir(multigroup_path);
+
+    if (!dp) {
+        if (errno == ENOENT) {
+            oldmask = umask(0002);
+            int retval = mkdir(multigroup_path, 0770);
+            umask(oldmask);
+
+            if (retval == -1) {
+                mdebug1("At read_controlmsg(): couldn't create directory '%s'", multigroup_path);
+                return -1;
+            }
+        } else {
+            mwarn("Could not create directory '%s': %s (%d)", multigroup_path, strerror(errno), errno);
+        }
+    } else {
+        closedir(dp);
+    }
+
+    return 0;
+}
+
+/* Create multigroup dir. Returns 0 on success or -1 on failure. */
+int create_multigroup_dir(const char * multigroup) {
+    char path[PATH_MAX];
+    DIR *dp;
+    char *has_multigroup =  strchr(multigroup,MULTIGROUP_SEPARATOR);
+
+    if (!has_multigroup) {
+        return 0;
+    }
+    mdebug1("Attempting to create multigroup dir: '%s'",multigroup);
+
+    if (snprintf(path, PATH_MAX, MULTIGROUPS_DIR "/%s", multigroup) >= PATH_MAX) {
+        merror("At create_multigroup_dir(): path too large for multigroup '%s'.", multigroup);
+        return -1;
+    }
+
+    dp = opendir(path);
+
+    /* Multigroup doesnt exists, create the directory */
+    if (!dp) {
+       if (mkdir(path, 0770) == -1) {
+            merror("At create_multigroup_dir(): couldn't create directory '%s'", path);
+            return -1;
+        }
+
+        if (chmod(path,0770) < 0) {
+            merror("At create_multigroup_dir(): Error in chmod setting permissions for path: %s",path);
+        }
+
+        uid_t uid = Privsep_GetUser(USER);
+        gid_t gid = Privsep_GetGroup(GROUPGLOBAL);
+
+        if (chown(path, uid, gid) == -1) {
+            merror(CHOWN_ERROR, path, errno, strerror(errno));
+            return -1;
+        }
+        mdebug1("Multigroup dir created: '%s'",multigroup);
+    } else {
+        closedir(dp);
+    }
+
+    return 0;
+}
 #endif
 
 int w_validate_group_name(const char *group, char *response) {
@@ -466,6 +548,35 @@ int w_validate_group_name(const char *group, char *response) {
     return 0;
 }
 
+#ifndef CLIENT
+void w_remove_multigroup(const char *group) {
+    char *multigroup = strchr(group,MULTIGROUP_SEPARATOR);
+    char path[PATH_MAX + 1] = {0};
+
+    if (multigroup) {
+        sprintf(path, "%s", GROUPS_DIR);
+
+        if (wstr_find_in_folder(path,group,1) < 0) {
+            /* Remove the DIR */
+            os_sha256 multi_group_hash;
+            OS_SHA256_String(group,multi_group_hash);
+            char _hash[9] = {0};
+
+            /* We only want the 8 first bytes of the hash */
+            multi_group_hash[8] = '\0';
+
+            strncpy(_hash,multi_group_hash,8);
+
+            sprintf(path, "%s/%s", MULTIGROUPS_DIR, _hash);
+
+            if (rmdir_ex(path) != 0) {
+                mdebug1("At w_remove_multigroup(): Directory '%s' couldn't be deleted. ('%s')",path, strerror(errno));
+            }
+        }
+    }
+}
+#endif
+
 // Connect to Agentd. Returns socket or -1 on error.
 int auth_connect() {
 #ifndef WIN32
@@ -486,7 +597,7 @@ static cJSON* w_create_agent_add_payload(const char *name,
                                          const char *key_hash,
                                          const char *key,
                                          const char *id,
-                                         authd_force_options_t *force_options) {
+                                         const int force) {
     cJSON* request = cJSON_CreateObject();
     cJSON* arguments = cJSON_CreateObject();
 
@@ -511,9 +622,8 @@ static cJSON* w_create_agent_add_payload(const char *name,
         cJSON_AddStringToObject(arguments, "id", id);
     }
 
-    cJSON* j_force = w_force_options_to_json(force_options);
-    if(j_force){
-        cJSON_AddItemToObject(arguments, "force", j_force);
+    if (force >= 0) {
+        cJSON_AddNumberToObject(arguments, "force", force);
     }
 
     return request;
@@ -551,7 +661,7 @@ static int w_parse_agent_add_response(const char* buffer, char *err_response, ch
                     printf("%s", buffer);
                 }
                 else {
-                    mwarn("%d: %s", error->valueint, message ? message->valuestring : "(undefined)");
+                    merror("%d: %s", error->valueint, message ? message->valuestring : "(undefined)");
                 }
                 result = -1;
             }
@@ -736,21 +846,14 @@ int w_request_agent_add_clustered(char *err_response,
                                   const char *key_hash,
                                   char **id,
                                   char **key,
-                                  authd_force_options_t *force_options,
+                                  const int force,
                                   const char *agent_id) {
     int result;
     char response[OS_MAXSTR + 1];
     char new_id[FILE_SIZE+1] = { '\0' };
     char new_key[KEYSIZE+1] = { '\0' };
-    cJSON* message;
 
-    if (agent_id){
-        // Create key polling request
-        message = w_create_agent_add_payload(name, ip, groups, NULL, key_hash, agent_id, force_options);
-    } else {
-        // Create dispatching request
-        message = w_create_agent_add_payload(name, ip, groups, key_hash, *key, agent_id, force_options);
-    }
+    cJSON* message = w_create_agent_add_payload(name, ip, groups, key_hash, *key, agent_id, force);
     cJSON* payload = w_create_sendsync_payload("authd", message);
     char* output = cJSON_PrintUnformatted(payload);
     cJSON_Delete(payload);
@@ -796,10 +899,10 @@ int w_request_agent_remove_clustered(char *err_response, const char* agent_id, i
 #endif //!WIN32
 
 //Send a local agent add request.
-int w_request_agent_add_local(int sock, char *id, const char *name, const char *ip, const char *groups, const char *key, authd_force_options_t *force_options, const int json_format, const char *agent_id, int exit_on_error) {
+int w_request_agent_add_local(int sock, char *id, const char *name, const char *ip, const char *groups, const char *key, const int force, const int json_format, const char *agent_id, int exit_on_error) {
     int result;
 
-    cJSON* payload = w_create_agent_add_payload(name, ip, groups, NULL, key, agent_id, force_options);
+    cJSON* payload = w_create_agent_add_payload(name, ip, groups, NULL, key, agent_id, force);
     char* output = cJSON_PrintUnformatted(payload);
     cJSON_Delete(payload);
 
@@ -900,27 +1003,8 @@ char * get_agent_id_from_name(const char *agent_name) {
     return NULL;
 }
 
-cJSON* w_force_options_to_json(authd_force_options_t *force_options){
-    if(!force_options){
-        return NULL;
-    }
-
-    cJSON* j_force_options = cJSON_CreateObject();
-    cJSON* j_disconnected_time = cJSON_CreateObject();
-
-    cJSON_AddBoolToObject(j_disconnected_time, "enabled", force_options->disconnected_time_enabled);
-    cJSON_AddNumberToObject(j_disconnected_time, "value", force_options->disconnected_time);
-    cJSON_AddItemToObject(j_force_options, "disconnected_time", j_disconnected_time);
-
-    cJSON_AddBoolToObject(j_force_options, "enabled", force_options->enabled);
-    cJSON_AddBoolToObject(j_force_options, "key_mismatch", force_options->key_mismatch);
-    cJSON_AddNumberToObject(j_force_options, "after_registration_time", force_options->after_registration_time);
-
-    return j_force_options;
-}
-
 /* Connect to the control socket if available */
-#if defined (__linux__) || defined (__MACH__) || defined(sun) || defined(FreeBSD) || defined(OpenBSD)
+#if defined (__linux__) || defined (__MACH__) || defined(sun)
 int control_check_connection() {
     int sock = OS_ConnectUnixDomain(CONTROL_SOCK, SOCK_STREAM, OS_SIZE_128);
 

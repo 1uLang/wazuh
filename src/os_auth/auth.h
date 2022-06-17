@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All rights reserved.
  *
@@ -27,7 +27,7 @@
 #define AUTHD_H
 
 #ifndef ARGV0
-#define ARGV0 "wazuh-authd"
+#define ARGV0 "hids-authd"
 #endif
 
 #include "addagent/manage_agents.h"
@@ -55,11 +55,7 @@ extern BIO *bio_err;
 
 struct client {
     int socket;
-    union {
-        struct in_addr *addr4;
-        struct in6_addr *addr6;
-    };
-    bool is_ipv6;
+    struct in_addr addr;
 };
 
 struct keynode {
@@ -152,12 +148,10 @@ w_err_t w_auth_validate_data(char *response,
  * @param key Key structure of the agent to be removed
  * @param hash_key Hash of the key on the agent
  * @param force_options Force configuration structure to define how the agent replacement must be handled.
- * @param str_result A message related to the result of the agent replacement. Must be freed by the caller.
  * */
 w_err_t w_auth_replace_agent(keyentry *key,
                              const char *key_hash,
-                             authd_force_options_t *force_options,
-                             char** str_result);
+                             authd_force_options_t *force_options);
 
 /**
  * @brief Adds new agent with provided enrollment data.
@@ -174,6 +168,7 @@ w_err_t w_auth_add_agent(char *response,
                          const char *groups,
                          char **id,
                          char **key);
+
 
 extern char shost[512];
 extern keystore keys;

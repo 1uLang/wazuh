@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All right reserved.
  *
@@ -41,15 +41,15 @@ void HandleSyslog()
     char srcip[IPSIZE + 1];
     char *buffer_pt = NULL;
     ssize_t recv_b;
-    struct sockaddr_storage _nc;
-    socklen_t _ncl;
+    struct sockaddr_in peer_info;
+    socklen_t peer_size;
 
     /* Set peer size */
-    _ncl = sizeof(_nc);
+    peer_size = sizeof(peer_info);
 
     /* Initialize some variables */
     memset(buffer, '\0', OS_MAXSTR + 2);
-    memset(&_nc, 0, sizeof(_nc));
+    memset(&peer_info, 0, sizeof(struct sockaddr_in));
 
     /* Connect to the message queue infinitely */
     if ((logr.m_queue = StartMQ(DEFAULTQUEUE, WRITE, INFINITE_OPENQ_ATTEMPTS)) < 0) {
@@ -59,7 +59,7 @@ void HandleSyslog()
     /* Infinite loop */
     while (1) {
         /* Receive message */
-        recv_b = recvfrom(logr.udp_sock, buffer, OS_MAXSTR, 0, (struct sockaddr *)&_nc, &_ncl);
+        recv_b = recvfrom(logr.udp_sock, buffer, OS_MAXSTR, 0, (struct sockaddr *)&peer_info, &peer_size);
 
         /* Nothing received */
         if (recv_b <= 0) {
@@ -75,16 +75,8 @@ void HandleSyslog()
         }
 
         /* Set the source IP */
-        switch (_nc.ss_family) {
-        case AF_INET:
-            get_ipv4_string(((struct sockaddr_in *)&_nc)->sin_addr, srcip, IPSIZE);
-            break;
-        case AF_INET6:
-            get_ipv6_string(((struct sockaddr_in6 *)&_nc)->sin6_addr, srcip, IPSIZE);
-            break;
-        default:
-            continue;
-        }
+        strncpy(srcip, inet_ntoa(peer_info.sin_addr), IPSIZE);
+        srcip[IPSIZE] = '\0';
 
         /* Remove syslog header */
         if (buffer[0] == '<') {

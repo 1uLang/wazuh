@@ -1,4 +1,4 @@
-# Copyright (C) 2015, Wazuh Inc.
+# Copyright (C) 2015-2020, Wazuh Inc.
 # Created by Wazuh, Inc. <info@wazuh.com>.
 # This program is a free software; you can redistribute it and/or modify it under the terms of GPLv2
 
@@ -7,27 +7,27 @@ from unittest.mock import patch
 
 import pytest
 
-import api.constants
 from api import configuration, api_exception
 from wazuh.core import common
 
 custom_api_configuration = {
     "host": "0.0.0.0",
     "port": 55000,
+    "use_only_authd": False,
     "drop_privileges": True,
     "experimental_features": False,
-    "max_upload_size": 10485760,
     "https": {
         "enabled": True,
-        "key": "server.key",
-        "cert": "server.crt",
+        "key": "api/configuration/ssl/server.key",
+        "cert": "api/configuration/ssl/server.crt",
         "use_ca": False,
-        "ca": "ca.crt",
+        "ca": "api/configuration/ssl/ca.crt",
         "ssl_protocol": "TLSv1.2",
         "ssl_ciphers": ""
     },
     "logs": {
-        "level": "info"
+        "level": "info",
+        "path": "logs/api.log"
     },
     "cors": {
         "enabled": False,
@@ -60,7 +60,8 @@ custom_api_configuration = {
 custom_incomplete_configuration = {
     "logs": {
         "level": "DEBUG"
-    }
+    },
+    "use_only_authd": True
 }
 
 
@@ -87,9 +88,8 @@ def test_read_configuration(mock_open, mock_exists, read_config):
     with patch('api.configuration.yaml.safe_load') as m:
         m.return_value = copy.deepcopy(read_config)
         config = configuration.read_yaml_config()
-        # Currently we only add SSL path to HTTPS options
-        for section, subsection in [('https', 'key'), ('https', 'cert'), ('https', 'ca')]:
-            config[section][subsection] = config[section][subsection].replace(f'{api.constants.API_SSL_PATH}/', '')
+        for section, subsection in [('logs', 'path'), ('https', 'key'), ('https', 'cert'), ('https', 'ca')]:
+            config[section][subsection] = config[section][subsection].replace(common.wazuh_path+'/', '')
 
         check_config_values(config, {}, read_config)
 
@@ -101,9 +101,9 @@ def test_read_configuration(mock_open, mock_exists, read_config):
     {'invalid_key': 'value'},
     {'host': 1234},
     {'port': 'invalid_type'},
+    {'use_only_authd': 'invalid_type'},
     {'drop_privileges': 'invalid_type'},
     {'experimental_features': 'invalid_type'},
-    {'max_upload_size': 'invalid_type'},
     {'https': {'enabled': 'invalid_type'}},
     {'https': {'key': 12345}},
     {'https': {'cert': 12345}},

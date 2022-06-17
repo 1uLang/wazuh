@@ -1,4 +1,4 @@
-# Copyright (C) 2015, Wazuh Inc.
+# Copyright (C) 2015-2020, Wazuh Inc.
 # Created by Wazuh, Inc. <info@wazuh.com>.
 # This program is a free software; you can redistribute it and/or modify it under the terms of GPLv2
 
@@ -11,16 +11,15 @@ from api.util import remove_nones_to_dict, parse_api_param, raise_if_exc
 from wazuh.core.cluster.dapi.dapi import DistributedAPI
 from wazuh.syscheck import run, clear, files, last_scan
 
-logger = logging.getLogger('wazuh-api')
+logger = logging.getLogger('hids-api')
 
 
-async def put_syscheck(request, agents_list: str = '*', pretty: bool = False,
-                       wait_for_complete: bool = False) -> web.Response:
+async def put_syscheck(request, agents_list='*', pretty=False, wait_for_complete=False):
     """Run a syscheck scan in the specified agents.
 
     Parameters
     ----------
-    agents_list : str
+    list_agents : str
         List of agent ids.
     pretty : bool
         Show results in human-readable format.

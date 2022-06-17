@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2021, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All right reserved.
  *
@@ -49,8 +49,8 @@ int AR_ReadConfig(const char *cfgfile)
         return (OS_INVALID);
     }
     fprintf(fp, "restart-ossec0 - restart-ossec.sh - 0\nrestart-ossec0 - restart-ossec.cmd - 0\n"
-                "restart-wazuh0 - restart-ossec.sh - 0\nrestart-wazuh0 - restart-ossec.cmd - 0\n"
-                "restart-wazuh0 - restart-wazuh - 0\nrestart-wazuh0 - restart-wazuh.exe - 0\n");
+                "restart-hids0 - restart-ossec.sh - 0\nrestart-hids0 - restart-ossec.cmd - 0\n"
+                "restart-hids0 - restart-hids - 0\nrestart-hids0 - restart-hids.exe - 0\n");
     fclose(fp);
 
 #ifndef WIN32

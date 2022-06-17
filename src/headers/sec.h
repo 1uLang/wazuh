@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All right reserved.
  *
@@ -52,7 +52,7 @@ typedef struct _keyentry {
     int net_protocol;                   ///< Client current protocol
     time_t time_added;
     pthread_mutex_t mutex;
-    struct sockaddr_storage peer_info;
+    struct sockaddr_in peer_info;
     FILE *fp;
     crypt_method crypto_method;
 
@@ -65,9 +65,9 @@ typedef struct _keystore {
     keyentry **keyentries;
 
     /* Hashes, based on the ID/IP to look up the keys */
-    rb_tree *keytree_id;
-    rb_tree *keytree_ip;
-    rb_tree *keytree_sock;
+    OSHash *keyhash_id;
+    OSHash *keyhash_ip;
+    OSHash *keyhash_sock;
 
     /* Total key size */
     unsigned int keysize;
@@ -86,9 +86,6 @@ typedef struct _keystore {
     size_t removed_keys_size;
 
     w_linked_queue_t *opened_fp_queue;
-
-    /* Mutexes */
-    pthread_mutex_t keytree_sock_mutex;
 } keystore;
 
 typedef enum key_states {
@@ -98,7 +95,7 @@ typedef enum key_states {
     KS_ENCKEY
 } key_states;
 
-#define KEYSTORE_INITIALIZER { NULL, NULL, NULL, NULL, 0, 0, 0, 0, { 0, 0 }, NULL, 0, NULL, PTHREAD_MUTEX_INITIALIZER }
+#define KEYSTORE_INITIALIZER { NULL, NULL, NULL, NULL, 0, 0, 0, 0, { 0, 0 }, NULL, 0, NULL }
 
 /** Function prototypes -- key management **/
 

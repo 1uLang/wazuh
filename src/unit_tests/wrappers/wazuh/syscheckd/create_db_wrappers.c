@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it
@@ -13,15 +13,18 @@
 #include <setjmp.h>
 #include <cmocka.h>
 
-void __wrap_fim_checker(const char *path, event_data_t *evt_data, const directory_t *configuration) {
+void __wrap_fim_checker(char *path,
+                        __attribute__((unused)) fim_element *item,
+                        whodata_evt *w_evt,
+                        int report) {
     check_expected(path);
-    check_expected(evt_data);
-    check_expected(configuration);
+    check_expected(w_evt);
+    check_expected(report);
 }
 
-directory_t *__wrap_fim_configuration_directory(const char *path) {
+int __wrap_fim_configuration_directory(const char *path) {
     check_expected(path);
-    return mock_type(directory_t *);
+    return mock();
 }
 
 cJSON *__wrap_fim_entry_json(const char * path,
@@ -60,13 +63,13 @@ int __wrap_fim_whodata_event(whodata_evt * w_evt)
     return 1;
 }
 
-void expect_fim_checker_call(const char *path, const directory_t *configuration) {
+void expect_fim_checker_call(const char *path, int w_evt, int report) {
     expect_string(__wrap_fim_checker, path, path);
-    expect_any(__wrap_fim_checker, evt_data);
-    expect_value(__wrap_fim_checker, configuration, configuration);
+    expect_value(__wrap_fim_checker, w_evt, w_evt);
+    expect_value(__wrap_fim_checker, report, report);
 }
 
-void expect_fim_configuration_directory_call(const char *path, directory_t *ret) {
+void expect_fim_configuration_directory_call(const char *path, int ret) {
     expect_string(__wrap_fim_configuration_directory, path, path);
     will_return(__wrap_fim_configuration_directory, ret);
 }

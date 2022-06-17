@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All right reserved.
  *
@@ -12,7 +12,7 @@
 #include "agentd.h"
 #include "os_net/os_net.h"
 
-#ifdef WAZUH_UNIT_TESTING
+#ifdef HIDS_UNIT_TESTING
     #define static
     #ifdef WIN32
             #include "unit_tests/wrappers/wazuh/client-agent/start_agent.h"
@@ -51,7 +51,7 @@ bool connect_server(int server_id, bool verbose)
 
         if (agt->server[agt->rip_id].rip) {
             if (verbose) {
-                minfo("Closing connection to server ([%s]:%d/%s).",
+                minfo("Closing connection to server (%s:%d/%s).",
                     agt->server[agt->rip_id].rip,
                     agt->server[agt->rip_id].port,
                     agt->server[agt->rip_id].protocol == IPPROTO_UDP ? "udp" : "tcp");
@@ -59,39 +59,48 @@ bool connect_server(int server_id, bool verbose)
         }
     }
 
-    char *ip_address = NULL;
-    char *tmp_str = strchr(agt->server[server_id].rip, '/');
+    char *tmp_str;
+
+    /* Check if we have a hostname */
+    tmp_str = strchr(agt->server[server_id].rip, '/');
     if (tmp_str) {
-        // server address comes in {hostname}/{ip} format
-        ip_address = strdup(++tmp_str);
-    }
-    if (!ip_address) {
-        // server address is either a host or a ip
-        ip_address = OS_GetHost(agt->server[server_id].rip, 3);
+        /* Resolve hostname */
+        if (!isChroot()) {
+            resolveHostname(&agt->server[server_id].rip, 5);
+
+            tmp_str = strchr(agt->server[server_id].rip, '/');
+            if (tmp_str) {
+                tmp_str++;
+            }
+        } else {
+            tmp_str++;
+        }
+    } else {
+        tmp_str = agt->server[server_id].rip;
     }
 
     /* The hostname was not resolved correctly */
-    if (ip_address == NULL || *ip_address == '\0') {
+    if (tmp_str == NULL || *tmp_str == '\0') {
         if (agt->server[server_id].rip != NULL) {
             const int rip_l = strlen(agt->server[server_id].rip);
-            minfo("Could not resolve hostname '%.*s'", agt->server[server_id].rip[rip_l - 1] == '/' ? rip_l - 1 : rip_l, agt->server[server_id].rip);
+            mdebug2("Could not resolve hostname '%.*s'", agt->server[server_id].rip[rip_l - 1] == '/' ? rip_l - 1 : rip_l, agt->server[server_id].rip);
         } else {
-            minfo("Could not resolve hostname");
+            mdebug2("Could not resolve hostname");
         }
-        os_free(ip_address);
+
         return false;
     }
 
     if (verbose) {
-        minfo("Trying to connect to server ([%s]:%d/%s).",
+        minfo("Trying to connect to server (%s:%d/%s).",
             agt->server[server_id].rip,
             agt->server[server_id].port,
             agt->server[server_id].protocol == IPPROTO_UDP ? "udp" : "tcp");
     }
     if (agt->server[server_id].protocol == IPPROTO_UDP) {
-        agt->sock = OS_ConnectUDP(agt->server[server_id].port, ip_address, strchr(ip_address, ':') != NULL);
+        agt->sock = OS_ConnectUDP(agt->server[server_id].port, tmp_str, strchr(tmp_str, ':') != NULL);
     } else {
-        agt->sock = OS_ConnectTCP(agt->server[server_id].port, ip_address, strchr(ip_address, ':') != NULL);
+        agt->sock = OS_ConnectTCP(agt->server[server_id].port, tmp_str, strchr(tmp_str, ':') != NULL);
     }
 
     if (agt->sock < 0) {
@@ -99,9 +108,9 @@ bool connect_server(int server_id, bool verbose)
 
         if (verbose) {
             #ifdef WIN32
-                merror(CONNS_ERROR, ip_address, agt->server[server_id].port, agt->server[server_id].protocol == IPPROTO_UDP ? "udp" : "tcp", win_strerror(WSAGetLastError()));
+                merror(CONNS_ERROR, tmp_str, agt->server[server_id].port, agt->server[server_id].protocol == IPPROTO_UDP ? "udp" : "tcp", win_strerror(WSAGetLastError()));
             #else
-                merror(CONNS_ERROR, ip_address, agt->server[server_id].port, agt->server[server_id].protocol == IPPROTO_UDP ? "udp" : "tcp", strerror(errno));
+                merror(CONNS_ERROR, tmp_str, agt->server[server_id].port, agt->server[server_id].protocol == IPPROTO_UDP ? "udp" : "tcp", strerror(errno));
             #endif
         }
     } else {
@@ -114,11 +123,8 @@ bool connect_server(int server_id, bool verbose)
             }
         #endif
         agt->rip_id = server_id;
-        last_connection_time = (int)time(NULL);
-        os_free(ip_address);
         return true;
     }
-    os_free(ip_address);
     return false;
 }
 

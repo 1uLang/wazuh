@@ -1,6 +1,6 @@
 /*
  * Wazuh Module for Agent Upgrading
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * July 3, 2020.
  *
  * This program is free software; you can redistribute it
@@ -9,7 +9,7 @@
  * Foundation.
  */
 
-#ifdef WAZUH_UNIT_TESTING
+#ifdef HIDS_UNIT_TESTING
 // Remove static qualifier when unit testing
 #define STATIC
 #else
@@ -170,7 +170,7 @@ void* wm_agent_upgrade_dispatch_upgrades(void *arg) {
         // Thread that will launch the upgrade
         w_create_thread(wm_agent_upgrade_start_upgrade, (void *)upgrade_config);
 
-    #ifdef WAZUH_UNIT_TESTING
+    #ifdef HIDS_UNIT_TESTING
         break;
     #endif
     }
@@ -249,7 +249,7 @@ STATIC void* wm_agent_upgrade_start_upgrade(void *arg) {
     // Notify end of execution
     sem_post(&upgrade_semaphore);
 
-#ifndef WAZUH_UNIT_TESTING
+#ifndef HIDS_UNIT_TESTING
     pthread_exit(NULL);
 #endif
 

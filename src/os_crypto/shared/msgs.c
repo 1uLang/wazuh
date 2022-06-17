@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All rights reserved.
  *
@@ -16,7 +16,7 @@
 #include "os_crypto/aes/aes_op.h"
 #include "client-agent/agentd.h"
 
-#ifdef WAZUH_UNIT_TESTING
+#ifdef HIDS_UNIT_TESTING
 #define static
 #endif
 
@@ -297,8 +297,6 @@ int ReadSecMSG(keystore *keys, char *buffer, char *cleartext, int id, unsigned i
     unsigned int msg_local = 0;
     char *f_msg;
 
-    w_mutex_lock(&keys->keyentries[id]->mutex);
-
     if(strncmp(buffer, "#AES", 4)==0){
         buffer+=4;
         #ifndef CLIENT
@@ -316,7 +314,6 @@ int ReadSecMSG(keystore *keys, char *buffer, char *cleartext, int id, unsigned i
         buffer++;
     } else {
         merror(ENCFORMAT_ERROR, keys->keyentries[id]->id, srcip);
-        w_mutex_unlock(&keys->keyentries[id]->mutex);
         return KS_CORRUPT;
     }
 
@@ -326,7 +323,6 @@ int ReadSecMSG(keystore *keys, char *buffer, char *cleartext, int id, unsigned i
             if (!OS_BF_Str(buffer, cleartext, keys->keyentries[id]->encryption_key,
                         buffer_size, OS_DECRYPT)) {
                 mwarn(ENCKEY_ERROR, keys->keyentries[id]->id, keys->keyentries[id]->ip->ip);
-                w_mutex_unlock(&keys->keyentries[id]->mutex);
                 return KS_ENCKEY;
             }
             break;
@@ -334,13 +330,10 @@ int ReadSecMSG(keystore *keys, char *buffer, char *cleartext, int id, unsigned i
             if (!OS_AES_Str(buffer, cleartext, keys->keyentries[id]->encryption_key,
                 buffer_size-4, OS_DECRYPT)) {
                 mwarn(ENCKEY_ERROR, keys->keyentries[id]->id, keys->keyentries[id]->ip->ip);
-                w_mutex_unlock(&keys->keyentries[id]->mutex);
                 return KS_ENCKEY;
             }
             break;
     }
-
-    w_mutex_unlock(&keys->keyentries[id]->mutex);
 
     /* Compressed */
     if (cleartext[0] == '!') {

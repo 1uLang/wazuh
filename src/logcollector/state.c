@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2021, Wazuh Inc.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it
@@ -10,7 +10,7 @@
 #include "state.h"
 #include "shared.h"
 
-#ifdef WAZUH_UNIT_TESTING
+#ifdef HIDS_UNIT_TESTING
 #define STATIC
 #else
 #define STATIC static
@@ -65,7 +65,7 @@ STATIC void _w_logcollector_state_update_target(w_lc_state_storage_t * state, ch
 
 /**
  * @brief Removes the `fpath` file from `state`
- *
+ * 
  * @param state state to be used
  * @param fpath file path or locafile location value
  */

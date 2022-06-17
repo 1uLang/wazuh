@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2021, Wazuh Inc.
  * All right reserved.
  *
  * This program is free software; you can redistribute it
@@ -12,7 +12,7 @@
 #define GREP        "/usr/bin/grep"
 #define PFCTL       "/sbin/pfctl"
 #define PFCTL_RULES "/etc/pf.conf"
-#define PFCTL_TABLE "wazuh_fwtable"
+#define PFCTL_TABLE "hids_fwtable"
 
 static int checking_if_its_configured(const char *path, const char *table);
 

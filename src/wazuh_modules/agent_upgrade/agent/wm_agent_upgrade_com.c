@@ -1,6 +1,6 @@
 /*
  * Wazuh Module for Agent Upgrading
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * July 30, 2020.
  *
  * This program is free software; you can redistribute it
@@ -8,7 +8,7 @@
  * License (version 2) as published by the FSF - Free Software
  * Foundation.
  */
-#ifdef WAZUH_UNIT_TESTING
+#ifdef HIDS_UNIT_TESTING
 // Remove static qualifier when unit testing
 #define STATIC
 
@@ -230,7 +230,7 @@ STATIC char * wm_agent_upgrade_com_open(const cJSON* json_object) {
     }
 
     if (file.fp = fopen(final_path, mode_obj->valuestring), file.fp) {
-        snprintf(file.path, sizeof(file.path), "%s", final_path);
+        strncpy(file.path, final_path, PATH_MAX);
         return wm_agent_upgrade_command_ack(ERROR_OK, error_messages[ERROR_OK]);
     } else {
         mterror(WM_AGENT_UPGRADE_LOGTAG, FOPEN_ERROR, file_path_obj->valuestring, errno, strerror(errno));

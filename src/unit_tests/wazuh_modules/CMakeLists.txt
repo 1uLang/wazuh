@@ -1,4 +1,4 @@
-# Copyright (C) 2015, Wazuh Inc.
+# Copyright (C) 2015-2020, Wazuh Inc.
 #
 # This program is free software; you can redistribute it
 # and/or modify it under the terms of the GNU General Public
@@ -21,6 +21,3 @@ if(${TARGET} STREQUAL "server")
   add_subdirectory(task_manager)
   add_subdirectory(agent_upgrade)
 endif()
-
-add_subdirectory(github)
-add_subdirectory(office365)

@@ -1,6 +1,6 @@
 /*
  * Wazuh SysInfo
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * October 7, 2020.
  *
  * This program is free software; you can redistribute it
@@ -25,8 +25,7 @@ void SysInfo::getMemory(nlohmann::json& info) const
     const std::vector<int> mib{CTL_HW, HW_PHYSMEM};
     size_t len{sizeof(ram)};
     auto ret{sysctl(const_cast<int*>(mib.data()), mib.size(), &ram, &len, nullptr, 0)};
-
-    if (ret)
+    if(ret)
     {
         throw std::system_error
         {
@@ -35,14 +34,12 @@ void SysInfo::getMemory(nlohmann::json& info) const
             "Error reading total RAM."
         };
     }
-
-    const auto ramTotal{ram / KByte};
+    const auto ramTotal{ram/KByte};
     info["ram_total"] = ramTotal;
     u_int pageSize{0};
     len = sizeof(pageSize);
     ret = sysctlbyname(vmPageSize, &pageSize, &len, nullptr, 0);
-
-    if (ret)
+    if(ret)
     {
         throw std::system_error
         {
@@ -51,14 +48,10 @@ void SysInfo::getMemory(nlohmann::json& info) const
             "Error reading page size."
         };
     }
-
-    struct vmtotal vmt {};
-
+    struct vmtotal vmt{};
     len = sizeof(vmt);
-
     ret = sysctlbyname(vmTotal, &vmt, &len, nullptr, 0);
-
-    if (ret)
+    if(ret)
     {
         throw std::system_error
         {
@@ -67,8 +60,7 @@ void SysInfo::getMemory(nlohmann::json& info) const
             "Error reading total memory."
         };
     }
-
-    const auto ramFree{(vmt.t_free * pageSize) / KByte};
+    const auto ramFree{(vmt.t_free * pageSize)/KByte};
     info["ram_free"] = ramFree;
     info["ram_usage"] = 100 - (100 * ramFree / ramTotal);
 }
@@ -80,8 +72,7 @@ int SysInfo::getCpuMHz() const
     constexpr auto clockRate{"hw.clockrate"};
     size_t len{sizeof(cpuMHz)};
     const auto ret{sysctlbyname(clockRate, &cpuMHz, &len, nullptr, 0)};
-
-    if (ret)
+    if(ret)
     {
         throw std::system_error
         {
@@ -90,7 +81,6 @@ int SysInfo::getCpuMHz() const
             "Error reading cpu frequency."
         };
     }
-
     return cpuMHz;
 }
 
@@ -102,10 +92,23 @@ std::string SysInfo::getSerialNumber() const
 nlohmann::json SysInfo::getPackages() const
 {
     nlohmann::json ret;
-    getPackages([&ret](nlohmann::json & data)
+    const auto query{Utils::exec(R"(pkg query -a "%n|%m|%v|%q|%c")")};
+    if (!query.empty())
     {
-        ret.push_back(data);
-    });
+        const auto lines{Utils::split(query, '\n')};
+        for (const auto& line : lines)
+        {
+            const auto data{Utils::split(line, '|')};
+            nlohmann::json package;
+            package["name"] = data[0];
+            package["vendor"] = data[1];
+            package["version"] = data[2];
+            package["architecture"] = data[3];
+            package["description"] = data[4];
+            package["format"] = "pkg";
+            ret.push_back(package);
+        }
+    }
     return ret;
 }
 
@@ -118,16 +121,14 @@ nlohmann::json SysInfo::getProcessesInfo() const
 nlohmann::json SysInfo::getOsInfo() const
 {
     nlohmann::json ret;
-    struct utsname uts {};
+    struct utsname uts{};
     const auto spParser{FactorySysOsParser::create("bsd")};
-
-    if (!spParser->parseUname(Utils::exec("uname -r"), ret))
+    if(!spParser->parseUname(Utils::exec("uname -r"), ret))
     {
         ret["os_name"] = "BSD";
         ret["os_platform"] = "bsd";
         ret["os_version"] = UNKNOWN_VALUE;
     }
-
     if (uname(&uts) >= 0)
     {
         ret["sysname"] = uts.sysname;
@@ -136,46 +137,11 @@ nlohmann::json SysInfo::getOsInfo() const
         ret["architecture"] = uts.machine;
         ret["release"] = uts.release;
     }
-
     return ret;
 }
 
 nlohmann::json SysInfo::getPorts() const
 {
-    // Currently not supported for this OS.
+    // Currently not supported for this OS
     return nlohmann::json {};
-}
-
-void SysInfo::getProcessesInfo(std::function<void(nlohmann::json&)> /*callback*/) const
-{
-    // Currently not supported for this OS.
-}
-
-void SysInfo::getPackages(std::function<void(nlohmann::json&)> callback) const
-{
-    const auto query{Utils::exec(R"(pkg query -a "%n|%m|%v|%q|%c")")};
-
-    if (!query.empty())
-    {
-        const auto lines{Utils::split(query, '\n')};
-
-        for (const auto& line : lines)
-        {
-            const auto data{Utils::split(line, '|')};
-            nlohmann::json package;
-            package["name"] = data[0];
-            package["vendor"] = data[1];
-            package["version"] = data[2];
-            package["architecture"] = data[3];
-            package["description"] = data[4];
-            package["format"] = "pkg";
-            callback(package);
-        }
-    }
-}
-
-nlohmann::json SysInfo::getHotfixes() const
-{
-    // Currently not supported for this OS.
-    return nlohmann::json();
 }

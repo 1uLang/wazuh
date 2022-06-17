@@ -13,8 +13,7 @@ import re
 import struct
 import traceback
 from importlib import import_module
-from typing import Tuple, Dict, Callable, List
-from uuid import uuid4
+from typing import Tuple, Dict, Callable
 
 import cryptography.fernet
 
@@ -58,8 +57,6 @@ class InBuffer:
     Define a buffer to receive incoming requests.
     """
 
-    divide_flag = b'd'  # flag used to indicate the message is divided
-
     def __init__(self, total=0):
         """Class constructor.
 
@@ -72,7 +69,6 @@ class InBuffer:
         self.total = total  # total of bytes to receive
         self.received = 0  # number of received bytes
         self.cmd = ''  # request's command in header
-        self.flag_divided = b''  # request's command flag to indicate a msg division
         self.counter = 0  # request's counter in the box
 
     def get_info_from_header(self, header: bytes, header_format: str, header_size: int) -> bytes:
@@ -93,12 +89,7 @@ class InBuffer:
             Buffer without the content of the header.
         """
         self.counter, self.total, cmd = struct.unpack(header_format, header[:header_size])
-        # The last Byte of the command is the flag indicating the division
-        flag = cmd[-1:]
-        self.flag_divided = flag if flag == InBuffer.divide_flag else b''
-
-        # Command is the first 11 B of command without dashes (in case they were added)
-        self.cmd = cmd[:-1].split(b' ')[0]
+        self.cmd = cmd.split(b' ')[0]
         self.payload = bytearray(self.total)
         return header[header_size:]
 
@@ -199,7 +190,7 @@ class ReceiveFileTask:
         """
         self.wazuh_common = wazuh_common
         self.coro = self.set_up_coro()
-        self.task_id = task_id.decode() if task_id else str(uuid4())
+        self.task_id = task_id.decode() if task_id else str(random.randint(0, 2 ** 32))
         self.received_information = asyncio.Event()
         self.task = asyncio.create_task(self.coro(self.task_id, self.received_information))
         self.task.add_done_callback(self.done_callback)
@@ -264,8 +255,6 @@ class Handler(asyncio.Protocol):
         self.counter = random.SystemRandom().randint(0, 2 ** 32 - 1)
         # The box stores all sent messages IDs.
         self.box = {}
-        # The div_msg_box stores all divided messages under its IDs.
-        self.div_msg_box = {}
         # Defines command length.
         self.cmd_len = 12
         # Defines header length.
@@ -285,7 +274,7 @@ class Handler(asyncio.Protocol):
         # Object use to encrypt and decrypt requests.
         self.my_fernet = cryptography.fernet.Fernet(base64.b64encode(fernet_key.encode())) if fernet_key else None
         # Logging.Logger object used to write logs.
-        self.logger = logging.getLogger('wazuh') if not logger else logger
+        self.logger = logging.getLogger('hids') if not logger else logger
         # Logging tag.
         self.tag = tag
         # Modify filter tags with context vars.
@@ -293,8 +282,6 @@ class Handler(asyncio.Protocol):
         self.cluster_items = cluster_items
         # Transports in asyncio are an abstraction of sockets.
         self.transport = None
-        # Tasks to be interrupted.
-        self.interrupted_tasks = set()
 
     def push(self, message: bytes):
         """Send a message to peer.
@@ -317,11 +304,11 @@ class Handler(asyncio.Protocol):
         self.counter = (self.counter + 1) % (2 ** 32)
         return self.counter
 
-    def msg_build(self, command: bytes, counter: int, data: bytes) -> List[bytearray]:
-        """Build messages with header + payload.
+    def msg_build(self, command: bytes, counter: int, data: bytes) -> bytes:
+        """Build a message with header + payload.
 
-        Each message contains a header in self.header_format format that includes self.counter, the data size and the
-        command. The data is also encrypted and added to the bytearray starting from the position self.header_len.
+        It contains a header in self.header_format format that includes self.counter, the data size and the command.
+        The data is also encrypted and added to the bytearray starting from the position self.header_len.
 
         Parameters
         ----------
@@ -334,51 +321,21 @@ class Handler(asyncio.Protocol):
 
         Returns
         -------
-        list
-            List of Bytes, built messages.
+        bytes
+            Built message.
         """
         cmd_len = len(command)
-        # cmd_len must be 12 - 1 (Byte reserved for the flag used in message division)
-        if cmd_len > self.cmd_len - len(InBuffer.divide_flag):
+        if cmd_len > self.cmd_len:
             raise exception.WazuhClusterError(3024, extra_message=command)
 
-        # Adds - to command until it reaches cmd length
+        # adds - to command until it reaches cmd length
         command = command + b' ' + b'-' * (self.cmd_len - cmd_len - 1)
         encrypted_data = self.my_fernet.encrypt(data) if self.my_fernet is not None else data
-        encrypted_message_size = self.header_len + len(encrypted_data)
+        out_msg = bytearray(self.header_len + len(encrypted_data))
+        out_msg[:self.header_len] = struct.pack(self.header_format, counter, len(encrypted_data), command)
+        out_msg[self.header_len:self.header_len + len(encrypted_data)] = encrypted_data
 
-        # Message size is <= request_chunk, send the message
-        if len(data) <= self.request_chunk:
-            msg = bytearray(encrypted_message_size)
-            msg[:self.header_len] = struct.pack(self.header_format, counter, len(encrypted_data), command)
-            msg[self.header_len:encrypted_message_size] = encrypted_data
-            return [msg]
-
-        # Message size > request_chunk, send the message divided
-        else:
-            # Command with the flag d (divided)
-            command = command[:-len(InBuffer.divide_flag)] + InBuffer.divide_flag
-            msg_list = []
-            partial_data_size = 0
-            data_size = len(encrypted_data)
-            while partial_data_size < data_size:
-                message_size = self.request_chunk \
-                    if data_size - partial_data_size + self.header_len >= self.request_chunk \
-                    else data_size - partial_data_size + self.header_len
-
-                # Last divided message, remove the flag
-                if message_size == data_size - partial_data_size + self.header_len:
-                    command = command[:-len(InBuffer.divide_flag)] + b'-' * len(InBuffer.divide_flag)
-
-                msg = bytearray(message_size)
-                msg[:self.header_len] = struct.pack(self.header_format, counter, message_size - self.header_len,
-                                                    command)
-                msg[self.header_len:message_size] = encrypted_data[
-                                                    partial_data_size:partial_data_size + message_size - self.header_len]
-                partial_data_size += message_size - self.header_len
-                msg_list.append(msg)
-
-            return msg_list
+        return out_msg
 
     def msg_parse(self) -> bool:
         """Parse an incoming message.
@@ -389,7 +346,6 @@ class Handler(asyncio.Protocol):
             Whether a message was parsed or not.
         """
         if self.in_buffer:
-            # Check if a new message was received.
             if self.in_msg.received == 0 and len(self.in_buffer) >= self.header_len:
                 # A new message has been received. Both header and payload must be processed.
                 self.in_buffer = self.in_msg.get_info_from_header(header=self.in_buffer,
@@ -404,8 +360,8 @@ class Handler(asyncio.Protocol):
 
         return False
 
-    def get_messages(self) -> Tuple[bytes, int, bytes, bytes]:
-        """Get received command, counter, payload and flag_divided.
+    def get_messages(self) -> Tuple[bytes, int, bytes]:
+        """Get received command, counter and payload.
 
         Called when data is received in the transport. It decrypts the received data and returns it using generators.
         If the data received in the transport contains multiple separated messages, it will return all of them in
@@ -419,21 +375,18 @@ class Handler(asyncio.Protocol):
             Counter.
         bytes
             Payload.
-        bytes
-            Flag_divided.
         """
         parsed = self.msg_parse()
 
         while parsed:
             if self.in_msg.received == self.in_msg.total:
-                # Decrypt received message if it is not a part of a divided message
+                # Decrypt received message
                 try:
-                    decrypted_payload = self.my_fernet.decrypt(bytes(self.in_msg.payload)) if self.my_fernet is not \
-                        None and not self.in_msg.flag_divided and self.in_msg.counter not in self.div_msg_box \
+                    decrypted_payload = self.my_fernet.decrypt(bytes(self.in_msg.payload)) if self.my_fernet is not None \
                         else bytes(self.in_msg.payload)
                 except cryptography.fernet.InvalidToken:
                     raise exception.WazuhClusterError(3025)
-                yield self.in_msg.cmd, self.in_msg.counter, decrypted_payload, self.in_msg.flag_divided
+                yield self.in_msg.cmd, self.in_msg.counter, decrypted_payload
                 self.in_msg = InBuffer()
             else:
                 break
@@ -454,13 +407,14 @@ class Handler(asyncio.Protocol):
         response_data : bytes
             Response from peer.
         """
+        if len(data) > self.request_chunk:
+            raise exception.WazuhClusterError(3033)
+
         response = Response()
         msg_counter = self.next_counter()
         self.box[msg_counter] = response
         try:
-            msgs = self.msg_build(command, msg_counter, data)
-            for msg in msgs:
-                self.push(msg)
+            self.push(self.msg_build(command, msg_counter, data))
         except MemoryError:
             self.request_chunk //= 2
             raise exception.WazuhClusterError(3026)
@@ -477,28 +431,24 @@ class Handler(asyncio.Protocol):
             return b'Error sending request: timeout expired.'
         return response_data
 
-    async def send_file(self, filename: str, task_id: bytes = None) -> int:
+    async def send_file(self, filename: str) -> bytes:
         """Send a file to peer, slicing it into chunks.
 
         Parameters
         ----------
         filename : str
             Full path of the file to send.
-        task_id : bytes
-            Task identifier to stop sending file if needed.
 
         Returns
         -------
-        sent_size : int
-            Number of bytes that were successfully sent.
+        bytes
+            Response message.
         """
         if not os.path.exists(filename):
             raise exception.WazuhClusterError(3034, extra_message=filename)
 
-        sent_size = 0
         filename = filename.encode()
-        relative_path = filename.replace(common.WAZUH_PATH.encode(), b'')
-
+        relative_path = filename.replace(common.wazuh_path.encode(), b'')
         # Tell to the destination node where (inside wazuh_path) the file has to be written.
         await self.send_request(command=b'new_file', data=relative_path)
 
@@ -508,14 +458,11 @@ class Handler(asyncio.Protocol):
             for chunk in iter(lambda: f.read(self.request_chunk - len(relative_path) - 1), b''):
                 await self.send_request(command=b'file_upd', data=relative_path + b' ' + chunk)
                 file_hash.update(chunk)
-                sent_size += len(chunk)
-                if task_id in self.interrupted_tasks:
-                    break
 
         # Close the destination file descriptor so the file in memory is dumped to disk.
         await self.send_request(command=b'file_end', data=relative_path + b' ' + file_hash.digest())
 
-        return sent_size
+        return b'File sent'
 
     async def send_string(self, my_str: bytes) -> bytes:
         """Send a large string to peer, slicing it into chunks.
@@ -573,7 +520,7 @@ class Handler(asyncio.Protocol):
             res = await self.send_request(b'dapi_err', json.dumps(e, cls=WazuhJSONEncoder).encode())
         except Exception as e:
             self.logger.error(f"Error sending API response to local client: {e}")
-            exc_info = json.dumps(exception.WazuhClusterError(1000, extra_message=str(e)),
+            exc_info = json.dumps(exception.WazuhClusterError(code=1000, extra_message=str(e)),
                                   cls=WazuhJSONEncoder).encode()
             res = await self.send_request(b'dapi_err', exc_info)
         finally:
@@ -594,10 +541,10 @@ class Handler(asyncio.Protocol):
             await self.get_manager().local_server.clients[client].send_request(b'ok', self.in_str[string_id].payload)
         except exception.WazuhException as e:
             self.logger.error(f"Error sending send sync response to local client: {e}")
-            await self.send_request(b'sendsyn_err', json.dumps(e, cls=WazuhJSONEncoder).encode())
+            await self.send_request(b'sendsync_err', json.dumps(e, cls=WazuhJSONEncoder).encode())
         except Exception as e:
             self.logger.error(f"Error sending send sync response to local client: {e}")
-            exc_info = json.dumps(exception.WazuhClusterError(1000, extra_message=str(e)),
+            exc_info = json.dumps(exception.WazuhClusterError(code=1000, extra_message=str(e)),
                                   cls=WazuhJSONEncoder).encode()
             await self.send_request(b'sendsync_err', exc_info)
         finally:
@@ -616,35 +563,17 @@ class Handler(asyncio.Protocol):
             Received data.
         """
         self.in_buffer += message
-        for command, counter, payload, flag_divided in self.get_messages():
-            # If the message is a divided one
-            if flag_divided == InBuffer.divide_flag:
-                try:
-                    self.div_msg_box[counter] = self.div_msg_box[counter] + payload
-                except KeyError:
-                    self.div_msg_box[counter] = payload
-            else:
-                # If the message is the last part of a division, join it.
-                if counter in self.div_msg_box:
-                    payload = self.div_msg_box[counter] + payload
-                    del self.div_msg_box[counter]
-                    # Decrypt the joined payload
-                    try:
-                        payload = self.my_fernet.decrypt(bytes(payload)) if self.my_fernet is not \
-                            None else bytes(payload)
-                    except cryptography.fernet.InvalidToken:
-                        raise exception.WazuhClusterError(3025)
-
-                # If the message is the response of a previously sent request.
-                if counter in self.box:
-                    if self.box[counter] is None:
-                        # Delete entry for previously expired request, just in case is received too late.
-                        del self.box[counter]
-                    else:
-                        self.box[counter].write(self.process_response(command, payload))
-                # If the message is not related to any previously sent request.
+        for command, counter, payload in self.get_messages():
+            # If the message is the response of a previously sent request.
+            if counter in self.box:
+                if self.box[counter] is None:
+                    # Delete entry for previously expired request, just in case is received too late.
+                    del self.box[counter]
                 else:
-                    self.dispatch(command, counter, payload)
+                    self.box[counter].write(self.process_response(command, payload))
+            # If the message is not related to any previously sent request.
+            else:
+                self.dispatch(command, counter, payload)
 
     def dispatch(self, command: bytes, counter: int, payload: bytes) -> None:
         """Process a received message and send a response.
@@ -668,9 +597,7 @@ class Handler(asyncio.Protocol):
             command, payload = b'err', json.dumps(exception.WazuhInternalError(1000, extra_message=str(e)),
                                                   cls=WazuhJSONEncoder).encode()
         if command is not None:
-            msgs = self.msg_build(command, counter, payload)
-            for msg in msgs:
-                self.push(msg)
+            self.push(self.msg_build(command, counter, payload))
 
     def close(self):
         """Close the connection."""
@@ -705,10 +632,8 @@ class Handler(asyncio.Protocol):
             return self.str_upd(data)
         elif command == b'err_str':
             return self.process_error_str(data)
-        elif command == b'file_end':
+        elif command == b"file_end":
             return self.end_file(data)
-        elif command == b'cancel_task':
-            return self.cancel_task(data)
         else:
             return self.process_unknown_cmd(command)
 
@@ -766,16 +691,16 @@ class Handler(asyncio.Protocol):
         bytes
             Response message.
         """
-        self.in_file[data] = {'fd': open(common.WAZUH_PATH + data.decode(), 'wb'), 'checksum': hashlib.sha256()}
+        self.in_file[data] = {'fd': open(common.wazuh_path + data.decode(), 'wb'), 'checksum': hashlib.sha256()}
         return b"ok ", b"Ready to receive new file"
 
     def update_file(self, data: bytes) -> Tuple[bytes, bytes]:
-        """Update file content.
+        """Extend file content.
 
         Parameters
         ----------
         data : bytes
-            Bytes containing filepath and data separated by ' '.
+            Bytes containing filepath and chunk of data separated by ' '.
 
         Returns
         -------
@@ -784,9 +709,9 @@ class Handler(asyncio.Protocol):
         bytes
             Response message.
         """
-        name, file_content = data.split(b' ', 1)
-        self.in_file[name]['fd'].write(file_content)
-        self.in_file[name]['checksum'].update(file_content)
+        name, chunk = data.split(b' ', 1)
+        self.in_file[name]['fd'].write(chunk)
+        self.in_file[name]['checksum'].update(chunk)
         return b"ok", b"File updated"
 
     def end_file(self, data: bytes) -> Tuple[bytes, bytes]:
@@ -813,31 +738,6 @@ class Handler(asyncio.Protocol):
             del self.in_file[name]
             return b"err", b"File wasn't correctly received. Checksums aren't equal."
 
-    def cancel_task(self, data: bytes) -> Tuple[bytes, bytes]:
-        """Add task_id to interrupted_tasks and log the error message.
-
-        Parameters
-        ----------
-        data : bytes
-            String containing task_id and WazuhJSONEncoded object with the exception details.
-
-        Returns
-        -------
-        bytes
-            Result.
-        bytes
-            Response message.
-        """
-        task_id, error_details = data.split(b' ', 1)
-        error_json = json.loads(error_details, object_hook=as_wazuh_object)
-        if task_id != b'None':
-            self.interrupted_tasks.add(task_id)
-            self.logger.error(f'The task was canceled due to the following error on the remote node: {error_json}')
-        else:
-            self.logger.error(f'The task was requested to be canceled but no task_id was received: {error_json}')
-
-        return b'ok', b'Request received correctly'
-
     def receive_str(self, data: bytes) -> Tuple[bytes, bytes]:
         """Create a bytearray with the string size.
 
@@ -863,7 +763,7 @@ class Handler(asyncio.Protocol):
         Parameters
         ----------
         data : bytes
-            Bytes containing string ID and data separated by ' '.
+            Bytes containing string ID and chunk of data separated by ' '.
 
         Returns
         -------
@@ -874,7 +774,7 @@ class Handler(asyncio.Protocol):
         """
         name, str_data = data.split(b' ', 1)
         self.in_str[name].receive_data(str_data)
-        return b"ok", b"String updated"
+        return b"ok", b"Chunk received"
 
     def process_error_str(self, expected_len: bytes) -> Tuple[bytes, bytes]:
         """Search and delete item inside self.in_str.
@@ -1025,16 +925,16 @@ class WazuhCommon:
         task_id, filename = task_and_file_names.split(' ', 1)
         if task_id not in self.sync_tasks:
             # Remove filename if task_id does not exists, before raising exception.
-            if os.path.exists(os.path.join(common.WAZUH_PATH, filename)):
+            if os.path.exists(os.path.join(common.wazuh_path, filename)):
                 try:
-                    os.remove(os.path.join(common.WAZUH_PATH, filename))
+                    os.remove(os.path.join(common.wazuh_path, filename))
                 except Exception as e:
                     self.get_logger(self.logger_tag).error(
-                        f"Attempt to delete file {os.path.join(common.WAZUH_PATH, filename)} failed: {e}")
+                        f"Attempt to delete file {os.path.join(common.wazuh_path, filename)} failed: {e}")
             raise exception.WazuhClusterError(3027, extra_message=task_id)
 
         # Set full path to file for task 'task_id' and notify it is ready to be read, so the lock is released.
-        self.sync_tasks[task_id].filename = os.path.join(common.WAZUH_PATH, filename)
+        self.sync_tasks[task_id].filename = os.path.join(common.wazuh_path, filename)
         self.sync_tasks[task_id].received_information.set()
         return b'ok', b'File correctly received'
 
@@ -1143,6 +1043,7 @@ def as_wazuh_object(dct: Dict):
             funcname = encoded_callable['__name__']
             if '__wazuh__' in encoded_callable:
                 # Encoded Wazuh instance method.
+                wazuh_dict = encoded_callable['__wazuh__']
                 wazuh = Wazuh()
                 return getattr(wazuh, funcname)
             else:
@@ -1167,5 +1068,5 @@ def as_wazuh_object(dct: Dict):
 
     except (KeyError, AttributeError):
         raise exception.WazuhInternalError(1000,
-                                           extra_message=f"Wazuh object cannot be decoded from JSON {dct}",
+                                           extra_message=f"Hids object cannot be decoded from JSON {dct}",
                                            cmd_error=True)

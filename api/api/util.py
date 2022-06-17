@@ -1,16 +1,16 @@
-# Copyright (C) 2015, Wazuh Inc.
+# Copyright (C) 2015-2019, Wazuh Inc.
 # Created by Wazuh, Inc. <info@wazuh.com>.
 # This program is a free software; you can redistribute it and/or modify it under the terms of GPLv2
 
 import datetime
 import os
 import typing
-from functools import wraps
 
 import six
 from connexion import ProblemException
 
-from wazuh.core.common import WAZUH_PATH
+from api.api_exception import APIError
+from wazuh.core.common import wazuh_path as WAZUH_PATH
 from wazuh.core.exception import WazuhException, WazuhInternalError, WazuhError, WazuhPermissionError, \
     WazuhResourceNotFound, WazuhTooManyRequests, WazuhNotAcceptable
 
@@ -294,57 +294,3 @@ def raise_if_exc(obj):
         _create_problem(obj)
     else:
         return obj
-
-
-def get_invalid_keys(original_dict, des_dict):
-    """Return a set with the keys from `original_dict` that are not present in `des_dict`.
-
-    Parameters
-    ----------
-    original_dict : dict
-        Original dictionary.
-    des_dict : dict
-        Deserialized dictionary with the model keys.
-
-    Returns
-    -------
-    set
-        Set with the invalid keys.
-    """
-    invalid_keys = set()
-
-    for key in original_dict:
-        if isinstance(original_dict[key], dict):
-            try:
-                invalid_keys.update(get_invalid_keys(original_dict[key], des_dict[key]))
-            except KeyError:
-                invalid_keys.add(key)
-        else:
-            if key not in set(des_dict):
-                invalid_keys.add(key)
-
-    return invalid_keys
-
-
-def deprecate_endpoint(link: str = ''):
-    """Decorator to add deprecation headers to API response.
-
-    Parameters
-    ----------
-    link : str
-        Documentation related with this deprecation.
-    """
-    def add_deprecation_headers(func):
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            api_response = await func(*args, **kwargs)
-
-            api_response.headers['Deprecated'] = 'true'
-            if link:
-                api_response.headers['Link'] = f'<{link}>; rel="Deprecated"'
-
-            return api_response
-
-        return wrapper
-
-    return add_deprecation_headers

@@ -1,4 +1,4 @@
-# Copyright (C) 2015, Wazuh Inc.
+# Copyright (C) 2015-2020, Wazuh Inc.
 # Created by Wazuh, Inc. <info@wazuh.com>.
 # This program is a free software; you can redistribute it and/or modify it under the terms of GPLv2
 
@@ -322,26 +322,14 @@ async def async_list_handler(result: asyncio.coroutine, **kwargs):
 
 def list_handler(result: AffectedItemsWazuhResult, original: dict = None, allowed: dict = None, target: dict = None,
                  add_denied: bool = False, **post_proc_kwargs):
-    """Post processor for framework list responses with affected items and optional denied items.
+    """ Post processor for framework list responses with affected items and optional denied items
 
-    Parameters
-    ----------
-    result : AffectedItemsWazuhResult
-        Dict with affected_items, failed_items and str_priority.
-    original : dict
-        Original input call parameter values.
-    allowed : dict
-        Allowed input call parameter values.
-    target : dict
-        Name of the input parameters used to calculate resource access.
-    add_denied : bool
-        Flag to add denied permissions to answer.
-    post_proc_kwargs : dict
-        Additional kwargs used in post-processing.
-
-    Returns
-    -------
-    AffectedItemsWazuhResult
+    :param result: Dict with affected_items, failed_items and str_priority
+    :param original: Original input call parameter values
+    :param allowed: Allowed input call parameter values
+    :param target: Name of the input parameters used to calculate resource access
+    :param add_denied: Flag to add denied permissions to answer
+    :return: AffectedItemsWazuhResult
     """
     if add_denied:
         for res_id, target_param in target.items():
@@ -352,9 +340,7 @@ def list_handler(result: AffectedItemsWazuhResult, original: dict = None, allowe
                 result.add_failed_item(id_=denied_item,
                                        error=WazuhPermissionError(4000, extra_message=f'Resource type: {res_id}',
                                                                   ids=denied))
-    if not add_denied or post_proc_kwargs.get('force'):
-        # Apply post processing exclusion/default values if the main resource was not explicit or
-        # `force` parameter exists in `post_proc_kwargs` and is True
+    else:
         if 'default_result_kwargs' in post_proc_kwargs and result is None:
             return AffectedItemsWazuhResult(**post_proc_kwargs['default_result_kwargs'])
         if 'exclude_codes' in post_proc_kwargs:

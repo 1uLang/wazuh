@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All right reserved.
  *
@@ -17,20 +17,13 @@
 
 #define WHODATA_PERMS (AUDIT_PERM_WRITE | AUDIT_PERM_ATTR)
 
-#define AUDIT_HEALTHCHECK_KEY "wazuh_hc"
-#define AUDIT_KEY "wazuh_fim"
+#define AUDIT_HEALTHCHECK_KEY "hids_hc"
+#define AUDIT_KEY "hids_fim"
 
 typedef struct {
     char *path;
     int pending_removal;
 } whodata_directory_t;
-
-typedef enum audit_key_type {
-    FIM_AUDIT_UNKNOWN_KEY = 0,
-    FIM_AUDIT_KEY,
-    FIM_AUDIT_HC_KEY,
-    FIM_AUDIT_CUSTOM_KEY
-} audit_key_type;
 
 /**
  * @brief Checks if the manipulation of the audit rule was done by FIM or by an user
@@ -59,8 +52,8 @@ int fim_rules_initial_load();
 void clean_regex();
 
 extern pthread_mutex_t audit_mutex;
-extern atomic_int_t audit_thread_active;
-extern atomic_int_t hc_thread_active;
-extern atomic_int_t audit_health_check_creation;
+extern volatile int audit_thread_active;
+extern volatile int hc_thread_active;
 extern unsigned int count_reload_retries;
+extern volatile int audit_health_check_creation;
 #endif // SYSCHECK_AUDIT_H

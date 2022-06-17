@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All right reserved.
  *
@@ -17,7 +17,7 @@
 #include "execd.h"
 #include "active-response/active_responses.h"
 
-#ifdef WAZUH_UNIT_TESTING
+#ifdef HIDS_UNIT_TESTING
 // Remove static qualifier when unit testing
 #define STATIC
 #else
@@ -32,7 +32,7 @@ time_t pending_upg = 0;
 /* Prototypes */
 static void help_execd(char * home_path) __attribute__((noreturn));
 STATIC void execd_shutdown(int sig) __attribute__((noreturn));
-#ifdef WAZUH_UNIT_TESTING
+#ifdef HIDS_UNIT_TESTING
 STATIC void ExecdStart(int q);
 #else
 STATIC void ExecdStart(int q) __attribute__((noreturn));
@@ -98,7 +98,7 @@ STATIC void execd_shutdown(int sig)
     HandleSIG(sig);
 }
 
-#ifdef WAZUH_UNIT_TESTING
+#ifdef HIDS_UNIT_TESTING
 __attribute((weak))
 #endif
 int main(int argc, char **argv)
@@ -168,7 +168,7 @@ int main(int argc, char **argv)
         }
     }
 
-    mdebug1(WAZUH_HOMEDIR, home_path);
+    mdebug1(HIDS_HOMEDIR, home_path);
     os_free(home_path);
 
     /* Check if the group given is valid */
@@ -303,7 +303,7 @@ STATIC void ExecdStart(int q)
         cmd_api[i] = NULL;
     }
 
-#ifndef WAZUH_UNIT_TESTING
+#ifndef HIDS_UNIT_TESTING
     /* Create list for timeout */
     timeout_list = OSList_Create();
     if (!timeout_list) {
@@ -639,7 +639,7 @@ STATIC void ExecdStart(int q)
         os_free(cmd_parameters);
         cJSON_Delete(json_root);
 
-    #ifdef WAZUH_UNIT_TESTING
+    #ifdef HIDS_UNIT_TESTING
         break;
     #endif
     }

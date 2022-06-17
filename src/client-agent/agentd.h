@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All rights reserved.
  *
@@ -32,6 +32,10 @@
 #define FULL 2
 #define FLOOD 3
 
+
+/* Resolve hostname */
+void resolveHostname(char **hostname, int attempts);
+
 /* Client configuration */
 int ClientConf(const char *cfgfile);
 
@@ -51,11 +55,7 @@ void *EventForward(void);
 int receive_msg(void);
 
 /* Receiver messages for Windows */
-#ifdef WIN32
-DWORD WINAPI receiver_thread(LPVOID none);
-#else
 void *receiver_thread(void *none);
-#endif
 
 /* Initialize agent buffer */
 void buffer_init();
@@ -64,11 +64,8 @@ void buffer_init();
 int buffer_append(const char *msg);
 
 /* Thread to dispatch messages from the buffer */
-#ifdef WIN32
-DWORD WINAPI dispatch_buffer(LPVOID arg);
-#else
 void *dispatch_buffer(void * arg);
-#endif
+
 /**
  * @brief get the number of events in buffer
  *
@@ -112,11 +109,7 @@ void run_notify(void);
 int format_labels(char *str, size_t size);
 
 // Thread to rotate internal log
-#ifdef WIN32
-DWORD WINAPI w_rotate_log_thread(LPVOID arg);
-#else
 void * w_rotate_log_thread(void * arg);
-#endif
 
 // Initialize request module
 void req_init();
@@ -125,11 +118,7 @@ void req_init();
 int req_push(char * buffer, size_t length);
 
 // Request receiver thread start
-#ifdef WIN32
-DWORD WINAPI req_receiver(LPVOID arg);
-#else
 void * req_receiver(void * arg);
-#endif
 
 // Restart agent
 void * restartAgent();
@@ -169,11 +158,10 @@ extern int min_eps;
 /* Global variables. Only modified during startup. */
 
 extern time_t available_server;
-extern time_t last_connection_time;
 extern int run_foreground;
 extern keystore keys;
 extern agent *agt;
 
-static const char AG_IN_UNMERGE[] = "wazuh: Could not unmerge shared file.";
+static const char AG_IN_UNMERGE[] = "hids: Could not unmerge shared file.";
 
 #endif /* AGENTD_H */

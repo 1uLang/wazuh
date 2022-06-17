@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * All right reserved.
  *
  * This program is free software; you can redistribute it
@@ -19,19 +19,19 @@ static void audit_send_msg(char **cache, int top, const char *file, int drop_it,
     int i;
     size_t n = 0;
     size_t z;
-    char message[OS_MAX_LOG_SIZE] = {0};
+    char message[OS_MAXSTR];
 
     for (i = 0; i < top; i++) {
         z = strlen(cache[i]);
 
-        if (n + z + 1 < sizeof(message)) {
+        if (n + z + 1 < OS_MAXSTR) {
             if (n > 0)
                 message[n++] = ' ';
 
-            strncat(message + n, cache[i], OS_MAX_LOG_SIZE - 1 - n);
-            n += z;
+            strncpy(message + n, cache[i], z);
         }
 
+        n += z;
         free(cache[i]);
     }
 
@@ -45,7 +45,7 @@ void *read_audit(logreader *lf, int *rc, int drop_it) {
     char *cache[MAX_CACHE];
     char header[MAX_HEADER] = { '\0' };
     int icache = 0;
-    char buffer[OS_MAX_LOG_SIZE];
+    char buffer[OS_MAXSTR];
     char *id;
     char *p;
     size_t z;
@@ -61,7 +61,7 @@ void *read_audit(logreader *lf, int *rc, int drop_it) {
     offset = w_ftell(lf->fp);
     bool is_valid_context_file = w_get_hash_context(lf, &context, offset);
 
-    for (offset = w_ftell(lf->fp); can_read() && fgets(buffer, OS_MAX_LOG_SIZE, lf->fp) && (!maximum_lines || lines < maximum_lines) && offset >= 0; offset += rbytes) {
+    for (offset = w_ftell(lf->fp); can_read() && fgets(buffer, OS_MAXSTR, lf->fp) && (!maximum_lines || lines < maximum_lines) && offset >= 0; offset += rbytes) {
         rbytes = w_ftell(lf->fp) - offset;
 
         /* Flow control */
@@ -84,9 +84,9 @@ void *read_audit(logreader *lf, int *rc, int drop_it) {
                 continue;
             }
         } else {
-            if (rbytes == OS_MAX_LOG_SIZE - 1) {
+            if (rbytes == OS_MAXSTR - 1) {
                 // Message too large, discard line
-                for (offset += rbytes; fgets(buffer, OS_MAX_LOG_SIZE, lf->fp); offset += rbytes) {
+                for (offset += rbytes; fgets(buffer, OS_MAXSTR, lf->fp); offset += rbytes) {
                     rbytes = w_ftell(lf->fp) - offset;
 
                     /* Flow control */

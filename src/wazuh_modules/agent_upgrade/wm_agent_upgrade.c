@@ -1,6 +1,6 @@
 /*
  * Wazuh Module for Agent Upgrading
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * July 3, 2020.
  *
  * This program is free software; you can redistribute it
@@ -9,7 +9,7 @@
  * Foundation.
  */
 
-#ifdef WAZUH_UNIT_TESTING
+#ifdef HIDS_UNIT_TESTING
 // Remove static qualifier when unit testing
 #define STATIC
 #else
@@ -28,13 +28,8 @@
 /**
  * Module main function. It won't return
  * */
-#ifdef WIN32
-STATIC DWORD WINAPI wm_agent_upgrade_main(void *arg);
-STATIC DWORD WINAPI wm_agent_upgrade_destroy(void* upgrade_config);
-#else
 STATIC void* wm_agent_upgrade_main(wm_agent_upgrade* upgrade_config);
 STATIC void wm_agent_upgrade_destroy(wm_agent_upgrade* upgrade_config);
-#endif
 STATIC cJSON *wm_agent_upgrade_dump(const wm_agent_upgrade* upgrade_config);
 
 /* Context definition */
@@ -47,39 +42,23 @@ const wm_context WM_AGENT_UPGRADE_CONTEXT = {
     NULL
 };
 
-#ifdef WIN32
-STATIC DWORD WINAPI wm_agent_upgrade_main(void *arg) {
-    wm_agent_upgrade* upgrade_config = (wm_agent_upgrade *)arg;
-#else
 STATIC void *wm_agent_upgrade_main(wm_agent_upgrade* upgrade_config) {
-#endif
+
     #ifdef CLIENT
         wm_agent_upgrade_start_agent_module(&upgrade_config->agent_config, upgrade_config->enabled);
     #else
         wm_agent_upgrade_start_manager_module(&upgrade_config->manager_config, upgrade_config->enabled);
     #endif
 
-#ifdef WIN32
-    return 0;
-#else
     return NULL;
-#endif
 }
 
-#ifdef WIN32
-STATIC DWORD WINAPI wm_agent_upgrade_destroy(void* upgrade_config_ptr) {
-    wm_agent_upgrade *upgrade_config = (wm_agent_upgrade *)upgrade_config_ptr;
-#else
 STATIC void wm_agent_upgrade_destroy(wm_agent_upgrade* upgrade_config) {
-#endif
     mtinfo(WM_AGENT_UPGRADE_LOGTAG, WM_UPGRADE_MODULE_FINISHED);
     #ifndef CLIENT
     os_free(upgrade_config->manager_config.wpk_repository);
     #endif
     os_free(upgrade_config);
-    #ifdef WIN32
-    return 0;
-    #endif
 }
 
 STATIC cJSON *wm_agent_upgrade_dump(const wm_agent_upgrade* upgrade_config){

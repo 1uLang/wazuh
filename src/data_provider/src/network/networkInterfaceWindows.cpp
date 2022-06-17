@@ -1,6 +1,6 @@
 /*
  * Wazuh SYSINFO
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2021, Wazuh Inc.
  * November 4, 2020.
  *
  * This program is free software; you can redistribute it
@@ -22,7 +22,7 @@ std::shared_ptr<IOSNetwork> FactoryWindowsNetwork::create(const std::shared_ptr<
     {
         const auto family { interfaceWrapper->family() };
 
-        if (Utils::NetworkWindowsHelper::IPV4 == family)
+        if(Utils::NetworkWindowsHelper::IPV4 == family)
         {
             ret = std::make_shared<WindowsNetworkImpl<Utils::NetworkWindowsHelper::IPV4>>(interfaceWrapper);
         }
@@ -34,14 +34,12 @@ std::shared_ptr<IOSNetwork> FactoryWindowsNetwork::create(const std::shared_ptr<
         {
             ret = std::make_shared<WindowsNetworkImpl<Utils::NetworkWindowsHelper::COMMON_DATA>>(interfaceWrapper);
         }
-
         // else: The current interface family is not supported
     }
     else
     {
         throw std::runtime_error { "Error nullptr interfaceWrapper instance." };
     }
-
     return ret;
 }
 
@@ -56,7 +54,6 @@ void WindowsNetworkImpl<Utils::NetworkWindowsHelper::IPV4>::buildNetworkData(nlo
 {
     // Get IPv4 address
     const auto address { m_interfaceAddress->address() };
-
     if (!address.empty())
     {
         nlohmann::json ipv4JS;
@@ -78,7 +75,6 @@ template <>
 void WindowsNetworkImpl<Utils::NetworkWindowsHelper::IPV6>::buildNetworkData(nlohmann::json& networkV6)
 {
     const auto address { m_interfaceAddress->addressV6() };
-
     if (!address.empty())
     {
         nlohmann::json ipv6JS { };

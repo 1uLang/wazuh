@@ -1,6 +1,9 @@
 ---
 test_name: GET /manager/status
 
+marks:
+  - base_tests
+
 stages:
 
   # GET /manager/status
@@ -469,8 +472,7 @@ stages:
                 evt_count: !anyfloat
                 ctrl_msg_count: !anyfloat
                 discarded_count: !anyfloat
-                queued_msgs: !anyfloat
-                sent_bytes: !anyfloat
+                msg_sent: !anyfloat
                 recv_bytes: !anyfloat
             total_affected_items: 1
             failed_items: []
@@ -539,12 +541,16 @@ stages:
         limit: 2
         sort: -level
     response:
-      verify_response_with:
-        - function: tavern_utils:test_sort_response
-          extra_kwargs:
-            key: "level"
-            reverse: true
-      status_code: 200
+        status_code: 200
+        json:
+          error: !anyint
+          data:
+            affected_items:
+              - <<: *manager_log
+              - <<: *manager_log
+            failed_items: []
+            total_affected_items: !anyint
+            total_failed_items: 0
 
   # GET /manager/logs
   - name: Filters -> offset=3, limit=3
@@ -661,25 +667,6 @@ stages:
             key: "level"
             expected_values: "info"
 
-  - name: Filters by query (timestamp<2021-07-01)
-    request:
-      verify: False
-      url: "{protocol:s}://{host:s}:{port:d}/manager/logs"
-      method: GET
-      headers:
-        Authorization: "Bearer {test_login_token}"
-      params:
-        q: timestamp<2021-07-01
-    response:
-      status_code: 200
-      json:
-        error: !anyint
-        data:
-          affected_items: []
-          failed_items: []
-          total_affected_items: 0
-          total_failed_items: 0
-
 ---
 test_name: GET /manager/logs/summary
 
@@ -760,6 +747,7 @@ stages:
                   ssl_ciphers: !anystr
                 logs:
                   level: !anystr
+                  path: !anystr
                 cors:
                   enabled: !anybool
                   source_route: !anystr
@@ -773,6 +761,7 @@ stages:
                   max_login_attempts: !anyint
                   block_time: !anyint
                   max_request_per_minute: !anyint
+                use_only_authd: !anybool
                 drop_privileges: !anybool
                 experimental_features: !anybool
           total_affected_items: 1
@@ -1255,21 +1244,6 @@ stages:
                 - 'manager'
           total_affected_items: 0
           total_failed_items: 1
-
-  # PUT /manager/configuration
-  - name: Try to upload an invalid configuration with an invalid content-type
-    request:
-      verify: False
-      url: "{protocol:s}://{host:s}:{port:d}/manager/configuration"
-      method: PUT
-      data: "{invalid_ossec_conf:s}"
-      headers:
-        Authorization: "Bearer {test_login_token}"
-        content-type: application/json
-    response:
-      status_code: 406
-      json:
-        error: 6002
 
   # GET /manager/configuration/
   - name: Ensure the config didn't change

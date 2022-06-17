@@ -1,13 +1,13 @@
 
 
-# Copyright (C) 2015, Wazuh Inc.
+# Copyright (C) 2015-2020, Wazuh Inc.
 # Created by Wazuh, Inc. <info@wazuh.com>.
 # This program is free software; you can redistribute it and/or modify it under the terms of GPLv2
 
-__version__ = '4.4.0'
-__revision__ = '40400'
-__author__ = "Wazuh Inc"
-__wazuh_name__ = "Wazuh"
+__version__ = '4.2.4'
+__revision__ = '40219'
+__author__ = "Hids Inc"
+__wazuh_name__ = "Hids"
 __licence__ = "\
 This program is free software; you can redistribute it and/or modify\n\
 it under the terms of the GNU General Public License (version 2) as \n\

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (C) 2015, Wazuh Inc.
+# Copyright (C) 2015-2021, Wazuh Inc.
 #
 # This program is a free software; you can redistribute it
 # and/or modify it under the terms of the GNU General Public
@@ -28,13 +28,13 @@ class MultiOrderedDict(OrderedDict):
 
 
 def getWazuhInfo(wazuh_home):
-    wazuh_control = os.path.join(wazuh_home, "bin", "wazuh-control")
+    wazuh_control = os.path.join(wazuh_home, "bin", "hids-control")
     wazuh_env_vars = {}
     try:
         proc = subprocess.Popen([wazuh_control, "info"], stdout=subprocess.PIPE)
         (stdout, stderr) = proc.communicate()
     except:
-        print("Seems like there is no Wazuh installation.")
+        print("Seems like there is no Hids installation.")
         return None
 
     env_variables = stdout.rsplit("\n")
@@ -73,6 +73,10 @@ def cleanDR():
         file_fullpath = os.path.join(decoders_dir, file)
         if os.path.isfile(file_fullpath) and re.match(r'^test_(.*?)_decoders.xml$',file):
             os.remove(file_fullpath)
+
+def restart_analysisd():
+    print("Restarting hids-manager...")
+    ret = os.system('systemctl restart hids-manager')
 
 class OssecTester(object):
     def __init__(self, bdir):
@@ -154,15 +158,15 @@ def cleanup(*args):
     sys.exit(0)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='This script tests Wazuh rules.')
-    parser.add_argument('--path', '-p', default='/var/ossec', dest='wazuh_home',
-                        help='Use -p or --path to specify Wazuh installation path')
+    parser = argparse.ArgumentParser(description='This script tests Hids rules.')
+    parser.add_argument('--path', '-p', default='/var/ossec', dest='hids_home',
+                        help='Use -p or --path to specify Hids installation path')
     parser.add_argument('--geoip', '-g', action='store_true', dest='geoip',
                         help='Use -g or --geoip to enable geoip tests (default: False)')
     parser.add_argument('--testfile', '-t', action='store', type=str, dest='testfile',
                         help='Use -t or --testfile to pass the ini file to test')
     parser.add_argument('--custom-ruleset', '-c', action='store_true', dest='custom',
-                        help='Use -c or --custom-ruleset to test custom rules and decoders.')
+                        help='Use -c or --custom-ruleset to test custom rules and decoders. WARNING: This will cause hids-manager restart')
     args = parser.parse_args()
     selective_test = False
     if args.testfile:
@@ -178,9 +182,11 @@ if __name__ == "__main__":
         signal.signal(sig, cleanup)
     if args.custom:
         provisionDR()
+        restart_analysisd()
     OT = OssecTester(args.wazuh_home)
     error = OT.run(selective_test, args.geoip, args.custom)
     if args.custom:
         cleanDR()
+        restart_analysisd()
     if error:
         sys.exit(1)

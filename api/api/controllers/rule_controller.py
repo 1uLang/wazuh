@@ -1,4 +1,4 @@
-# Copyright (C) 2015, Wazuh Inc.
+# Copyright (C) 2015-2020, Wazuh Inc.
 # Created by Wazuh, Inc. <info@wazuh.com>.
 # This program is a free software; you can redistribute it and/or modify it under the terms of GPLv2
 
@@ -16,14 +16,14 @@ from wazuh import rule as rule_framework
 from wazuh.core.cluster.dapi.dapi import DistributedAPI
 from wazuh.core.results import AffectedItemsWazuhResult
 
-logger = logging.getLogger('wazuh-api')
+logger = logging.getLogger('hids-api')
 
 
 @cache(expires=api_conf['cache']['time'])
 async def get_rules(request, rule_ids=None, pretty=False, wait_for_complete=False, offset=0, select=None,
                     limit=None, sort=None, search=None, q=None, status=None, group=None, level=None, filename=None,
                     relative_dirname=None, pci_dss=None, gdpr=None, gpg13=None, hipaa=None, tsc=None, mitre=None):
-    """Get information about all Wazuh rules.
+    """Get information about all Hids rules.
 
     :param rule_ids: Filters by rule ID
     :param pretty: Show results in human-readable format
@@ -45,7 +45,7 @@ async def get_rules(request, rule_ids=None, pretty=False, wait_for_complete=Fals
     :param gpg13: Filters by GPG13 requirement.
     :param hipaa: Filters by HIPAA requirement.
     :param tsc: Filters by TSC requirement.
-    :param mitre: Filters by mitre technique ID.
+    :param mitre: Filters by mitre attack ID.
     :return: Data object
     """
     f_kwargs = {'rule_ids': rule_ids, 'offset': offset, 'limit': limit, 'select': select,

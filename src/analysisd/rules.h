@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All right reserved.
  *
@@ -84,12 +84,6 @@
 #define RULEINFODETAIL_BUGTRACK 4
 
 #define MAX_RULEINFODETAIL  32
-
-#define RULES_DEBUG_MSG_I_MAX_LEN   1056
-#define RULES_DEBUG_MSG_I           "Trying rule: %d - %s"
-#define RULES_DEBUG_MSG_II_MAX_LEN  32
-#define RULES_DEBUG_MSG_II          "*Rule %d matched"
-#define RULES_DEBUG_MSG_III         "*Trying child rules"
 
 typedef struct EventList EventList;
 struct _Eventinfo;
@@ -216,38 +210,10 @@ typedef struct _RuleInfo {
     char ** not_same_fields;
 
     char ** mitre_id;
-    char ** mitre_tactic_id;
-    char ** mitre_technique_id;
 
     bool internal_saving;      ///< Used to free RuleInfo structure in wazuh-logtest
 } RuleInfo;
 
-typedef struct _rules_tmp_params_t {
-
-    char * regex;
-    char * match;
-    char * url;
-    char * if_matched_regex;
-    char * if_matched_group;
-    char * user;
-    char * id;
-    char * srcport;
-    char * dstport;
-    char * srcgeoip;
-    char * dstgeoip;
-    char * protocol;
-    char * system_name;
-    char * status;
-    char * hostname;
-    char * data;
-    char * extra_data;
-    char * program_name;
-    char * location;
-    char * action;
-
-    XML_NODE rule_arr_opt;
-
-} rules_tmp_params_t;
 
 typedef struct _RuleNode {
     RuleInfo *ruleinfo;
@@ -298,14 +264,12 @@ RuleInfo *zerorulemember(int id, int level, int maxsize, int frequency,
  * @param curr_node rule to compare with the event "lf"
  * @param rule_match stores the regex of the rule
  * @param save_fts_value determine if fts value can be saved in fts-queue file
- * @param rules_debug_list it is filled with a list of the processed rules messages if it is a non-null pointer
  * @return the rule information if it matches, otherwise null
  */
-RuleInfo * OS_CheckIfRuleMatch(struct _Eventinfo *lf, EventList *last_events,
-                               ListNode **cdblists, RuleNode *curr_node,
-                               regex_matching *rule_match, OSList **fts_list,
-                               OSHash **fts_store, const bool save_fts_value,
-                               cJSON * rules_debug_list);
+RuleInfo *OS_CheckIfRuleMatch(struct _Eventinfo *lf, EventList *last_events,
+                              ListNode **cdblists, RuleNode *curr_node,
+                              regex_matching *rule_match, OSList **fts_list,
+                              OSHash **fts_store, const bool save_fts_value);
 
 /**
  * @brief Set os_analysisd_rulelist to null

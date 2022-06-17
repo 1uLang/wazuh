@@ -1,6 +1,5 @@
 ---
 - actions:
-  - rootcheck:clear
   - syscollector:read
   - syscheck:clear
   - ciscat:read

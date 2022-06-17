@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  *
  * This program is free software; you can redistribute it
  * and/or modify it under the terms of the GNU General Public
@@ -38,6 +38,16 @@ int __wrap_close(int fd) {
     return 0;
 }
 #endif
+
+void __wrap_resolveHostname(char **hostname, int attempts) {
+    if (strcmp(*hostname, "VALID_HOSTNAME/") == 0) {
+        free(*hostname);
+        os_strdup("VALID_HOSTNAME/127.0.0.3", *hostname);
+    } else {
+        free(*hostname);
+        os_strdup("INVALID_HOSTNAME/", *hostname);
+    }
+}
 
 int __wrap_send_msg(const char *msg, ssize_t msg_length) {
     check_expected(msg);
@@ -86,13 +96,17 @@ void add_server_config(char* address, int protocol) {
 }
 
 void keys_init(keystore *keys) {
-    /* Initialize trees */
+    /* Initialize hashes */
 
-    keys->keytree_id = rbtree_init();
-    keys->keytree_ip = rbtree_init();
-    keys->keytree_sock = rbtree_init();
+#ifdef TEST_WINAGENT
+    will_return_count(__wrap_os_random, 12345, 6);
+#endif
 
-    if (!(keys->keytree_id && keys->keytree_ip && keys->keytree_sock)) {
+    keys->keyhash_id = OSHash_Create();
+    keys->keyhash_ip = OSHash_Create();
+    keys->keyhash_sock = OSHash_Create();
+
+    if (!(keys->keyhash_id && keys->keyhash_ip && keys->keyhash_sock)) {
         merror_exit(MEM_ERROR, errno, strerror(errno));
     }
 
@@ -124,16 +138,12 @@ static int setup_test(void **state) {
     agt->flags.auto_restart = 1;
     agt->crypto_method = W_METH_AES;
     /* Connected sock */
-    agt->sock = -1;
+    agt->sock=-1;
     /* Server */
     add_server_config("127.0.0.1", IPPROTO_UDP);
     add_server_config("127.0.0.2", IPPROTO_TCP);
-    add_server_config("VALID_HOSTNAME/127.0.0.3", IPPROTO_UDP);
+    add_server_config("VALID_HOSTNAME/", IPPROTO_UDP);
     add_server_config("INVALID_HOSTNAME/", IPPROTO_UDP);
-
-    expect_value(__wrap_w_calloc_expression_t, type, EXP_TYPE_PCRE2);
-    will_return(__wrap_w_expression_compile, 1);
-    will_return(__wrap_w_expression_match, 0);
 
     /* Keys */
     keys_init(&keys);
@@ -159,11 +169,8 @@ static int teardown_test(void **state) {
 /* connect_server */
 static void test_connect_server(void **state) {
     bool connected = false;
-    expect_any(__wrap__minfo, formatted_msg);
     /* Connect to first server (UDP)*/
     will_return(__wrap_getDefine_Int, 5);
-    expect_string(__wrap_OS_GetHost, host, agt->server[0].rip);
-    will_return(__wrap_OS_GetHost, strdup("127.0.0.1"));
     will_return(__wrap_OS_ConnectUDP, 11);
 
     expect_any_count(__wrap__minfo, formatted_msg, 2);
@@ -175,8 +182,6 @@ static void test_connect_server(void **state) {
 
     /* Connect to second server (TCP), previous connection must be closed*/
     will_return(__wrap_getDefine_Int, 5);
-    expect_string(__wrap_OS_GetHost, host, agt->server[1].rip);
-    will_return(__wrap_OS_GetHost, strdup("127.0.0.2"));
 
     expect_any(__wrap_OS_ConnectTCP, _port);
     expect_any(__wrap_OS_ConnectTCP, _ip);
@@ -227,8 +232,6 @@ static void test_connect_server(void **state) {
 
     /* Connect to first server (UDP), simulate connection error*/
     will_return(__wrap_getDefine_Int, 5);
-    expect_string(__wrap_OS_GetHost, host, agt->server[0].rip);
-    will_return(__wrap_OS_GetHost, strdup("127.0.0.1"));
     will_return(__wrap_OS_ConnectUDP, -1);
     connected = connect_server(0, true);
     assert_false(connected);
@@ -242,8 +245,6 @@ static void test_agent_handshake_to_server(void **state) {
 
     /* Handshake with first server (UDP) */
     will_return(__wrap_getDefine_Int, 5);
-    expect_string(__wrap_OS_GetHost, host, agt->server[0].rip);
-    will_return(__wrap_OS_GetHost, strdup("127.0.0.1"));
     will_return(__wrap_OS_ConnectUDP, 21);
     #ifndef TEST_WINAGENT
     will_return(__wrap_recv, SERVER_ENC_ACK);
@@ -263,8 +264,6 @@ static void test_agent_handshake_to_server(void **state) {
 
     /* Handshake with second server (TCP) */
     will_return(__wrap_getDefine_Int, 5);
-    expect_string(__wrap_OS_GetHost, host, agt->server[1].rip);
-    will_return(__wrap_OS_GetHost, strdup("127.0.0.2"));
 
     expect_any(__wrap_OS_ConnectTCP, _port);
     expect_any(__wrap_OS_ConnectTCP, _ip);
@@ -292,8 +291,6 @@ static void test_agent_handshake_to_server(void **state) {
 
     /* Handshake sending the startup message */
     will_return(__wrap_getDefine_Int, 5);
-    expect_string(__wrap_OS_GetHost, host, agt->server[1].rip);
-    will_return(__wrap_OS_GetHost, strdup("127.0.0.2"));
 
     expect_any(__wrap_OS_ConnectTCP, _port);
     expect_any(__wrap_OS_ConnectTCP, _ip);
@@ -322,8 +319,6 @@ static void test_agent_handshake_to_server(void **state) {
 
     /* Handshake with connection error */
     will_return(__wrap_getDefine_Int, 5);
-    expect_string(__wrap_OS_GetHost, host, agt->server[0].rip);
-    will_return(__wrap_OS_GetHost, strdup("127.0.0.1"));
     will_return(__wrap_OS_ConnectUDP, -1);
 #ifndef TEST_WINAGENT
     expect_value(__wrap_close, fd, 23);
@@ -339,8 +334,6 @@ static void test_agent_handshake_to_server(void **state) {
 
     /* Handshake with reception error */
     will_return(__wrap_getDefine_Int, 5);
-    expect_string(__wrap_OS_GetHost, host, agt->server[0].rip);
-    will_return(__wrap_OS_GetHost, strdup("127.0.0.1"));
     will_return(__wrap_OS_ConnectUDP, 23);
     will_return(__wrap_wnet_select, 0);
     expect_string(__wrap_send_msg, msg, "#!-agent startup ");
@@ -352,8 +345,6 @@ static void test_agent_handshake_to_server(void **state) {
 
     /* Handshake with decode error */
     will_return(__wrap_getDefine_Int, 5);
-    expect_string(__wrap_OS_GetHost, host, agt->server[0].rip);
-    will_return(__wrap_OS_GetHost, strdup("127.0.0.1"));
     will_return(__wrap_OS_ConnectUDP, 24);
 #ifndef TEST_WINAGENT
     expect_value(__wrap_close, fd, 23);

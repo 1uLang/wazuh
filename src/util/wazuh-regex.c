@@ -1,4 +1,5 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
+ * Copyright (C) 2009 Trend Micro Inc.
  * All right reserved.
  *
  * This program is free software; you can redistribute it
@@ -10,7 +11,7 @@
 #include "shared.h"
 
 #undef ARGV0
-#define ARGV0 "wazuh-regex"
+#define ARGV0 "hids-regex"
 
 /* Prototypes */
 static void helpmsg(void) __attribute__((noreturn));
@@ -18,7 +19,7 @@ static void helpmsg(void) __attribute__((noreturn));
 
 static void helpmsg()
 {
-    printf("\n%s %s: wazuh-regex <pattern>\n", __ossec_name, ARGV0);
+    printf("\n%s %s: hids-regex <pattern>\n", __ossec_name, ARGV0);
     exit(1);
 }
 

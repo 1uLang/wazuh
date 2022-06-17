@@ -1,6 +1,6 @@
 /*
  * Wazuh shared modules utils
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2021, Wazuh Inc.
  * February 16, 2021.
  *
  * This program is free software; you can redistribute it
@@ -28,49 +28,43 @@ namespace Utils
 {
     class EncodingWindowsHelper final
     {
-        public:
-            static std::string wstringToStringUTF8(const std::wstring& inputArgument)
+    public:
+        static std::string wstringToStringUTF8(const std::wstring& inputArgument)
+        {
+            std::string retVal;
+            if (!inputArgument.empty())
             {
-                std::string retVal;
-
-                if (!inputArgument.empty())
+                const auto inputArgumentSize{static_cast<int>(inputArgument.size())};
+                const auto sizeNeeded {WideCharToMultiByte(CP_UTF8, 0, inputArgument.data(), inputArgumentSize, nullptr, 0, nullptr, nullptr)};
+                const auto buffer{std::make_unique<char[]>(sizeNeeded)};
+                if (WideCharToMultiByte(CP_UTF8, 0, inputArgument.data(), inputArgumentSize, buffer.get(), sizeNeeded, nullptr, nullptr) > 0)
                 {
-                    const auto inputArgumentSize{static_cast<int>(inputArgument.size())};
-                    const auto sizeNeeded {WideCharToMultiByte(CP_UTF8, 0, inputArgument.data(), inputArgumentSize, nullptr, 0, nullptr, nullptr)};
-                    const auto buffer{std::make_unique<char[]>(sizeNeeded)};
-
-                    if (WideCharToMultiByte(CP_UTF8, 0, inputArgument.data(), inputArgumentSize, buffer.get(), sizeNeeded, nullptr, nullptr) > 0)
-                    {
-                        retVal.assign(buffer.get(), sizeNeeded);
-                    }
+                    retVal.assign(buffer.get(), sizeNeeded);
                 }
-
-                return retVal;
             }
+            return retVal;
+        }
 
-            static std::wstring stringToWStringAnsi(const std::string& inputArgument)
+        static std::wstring stringToWStringAnsi(const std::string& inputArgument)
+        {
+            std::wstring retVal;
+            if (!inputArgument.empty())
             {
-                std::wstring retVal;
-
-                if (!inputArgument.empty())
+                const auto inputArgumentSize{static_cast<int>(inputArgument.size())};
+                const auto sizeNeeded {MultiByteToWideChar(CP_ACP, 0, inputArgument.data(), inputArgumentSize, nullptr, 0)};
+                const auto buffer{std::make_unique<wchar_t[]>(sizeNeeded)};
+                if (MultiByteToWideChar(CP_ACP, 0, inputArgument.data(), inputArgumentSize, buffer.get(), sizeNeeded) > 0)
                 {
-                    const auto inputArgumentSize{static_cast<int>(inputArgument.size())};
-                    const auto sizeNeeded {MultiByteToWideChar(CP_ACP, 0, inputArgument.data(), inputArgumentSize, nullptr, 0)};
-                    const auto buffer{std::make_unique<wchar_t[]>(sizeNeeded)};
-
-                    if (MultiByteToWideChar(CP_ACP, 0, inputArgument.data(), inputArgumentSize, buffer.get(), sizeNeeded) > 0)
-                    {
-                        retVal.assign(buffer.get(), sizeNeeded);
-                    }
+                    retVal.assign(buffer.get(), sizeNeeded);
                 }
-
-                return retVal;
             }
+            return retVal;
+        }
 
-            static std::string stringAnsiToStringUTF8(const std::string& inputArgument)
-            {
-                return wstringToStringUTF8(stringToWStringAnsi(inputArgument));
-            }
+        static std::string stringAnsiToStringUTF8(const std::string& inputArgument)
+        {
+            return wstringToStringUTF8(stringToWStringAnsi(inputArgument));
+        }
     };
 }
 

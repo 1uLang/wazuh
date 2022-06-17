@@ -1,4 +1,4 @@
 | Actions                  | Resources | Allow                                   | Deny                         |
 |--------------------------|-----------|-----------------------------------------|------------------------------|
-| agent:upgrade            | agent:id  | 005                                     |                              |
+| agent:upgrade            | agent:id  | 001                                     |                              |
 | task:status              | *:*       | *                                       |                              |

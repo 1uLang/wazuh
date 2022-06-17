@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (C) 2015, Wazuh Inc.
+# Copyright (C) 2015-2020, Wazuh Inc.
 # Created by Wazuh, Inc. <info@wazuh.com>.
 # This program is free software; you can redistribute it and/or modify it under the terms of GPLv2
 
@@ -9,8 +9,8 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-with patch('wazuh.core.common.wazuh_uid'):
-    with patch('wazuh.core.common.wazuh_gid'):
+with patch('wazuh.core.common.ossec_uid'):
+    with patch('wazuh.core.common.ossec_gid'):
         sys.modules['wazuh.rbac.orm'] = MagicMock()
         import wazuh.rbac.decorators
         from wazuh.tests.util import RBAC_bypasser
@@ -28,23 +28,23 @@ full_agent_list = ['000', '001', '002', '003', '004', '005', '006', '007', '008'
 # Tests
 
 @pytest.mark.parametrize('message_exception, send_exception, agent_id, command, arguments, custom, alert, version', [
-    (1701, None, ['999'], 'restart-wazuh0', [], False, None, 'Wazuh v4.0.0'),
-    (1703, None, ['000'], 'restart-wazuh0', [], False, None, 'Wazuh v4.0.0'),
-    (1650, None, ['001'], None, [], False, None, 'Wazuh v4.0.0'),
-    (1652, None, ['002'], 'random', [], False, None, 'Wazuh v4.0.0'),
-    (None, 1707, ['003'], 'restart-wazuh0', [], False, None, None),
-    (None, 1750, ['004'], 'restart-wazuh0', [], False, None, 'Wazuh v4.0.0'),
-    (None, None, ['005'], 'restart-wazuh0', [], False, None, 'Wazuh v4.0.0'),
-    (None, None, ['006'], 'custom-ar', [], True, None, 'Wazuh v4.0.0'),
-    (None, None, ['007'], 'restart-wazuh0', ["arg1", "arg2"], False, None, 'Wazuh v4.0.0'),
-    (None, None, ['001', '002', '003', '004', '005', '006'], 'restart-wazuh0', [], False, None, 'Wazuh v4.0.0'),
-    (None, None, ['001'], 'restart-wazuh0', ["arg1", "arg2"], False, None, 'Wazuh v4.2.0'),
-    (None, None, ['002'], 'restart-wazuh0', [], False, None, 'Wazuh v4.2.1'),
+    (1701, None, ['999'], 'restart-hids0', [], False, None, 'Hids v4.0.0'),
+    (1703, None, ['000'], 'restart-hids0', [], False, None, 'Hids v4.0.0'),
+    (1650, None, ['001'], None, [], False, None, 'Hids v4.0.0'),
+    (1652, None, ['002'], 'random', [], False, None, 'Hids v4.0.0'),
+    (None, 1651, ['003'], 'restart-hids0', [], False, None, None),
+    (None, 1750, ['004'], 'restart-hids0', [], False, None, 'Hids v4.0.0'),
+    (None, None, ['005'], 'restart-hids0', [], False, None, 'Hids v4.0.0'),
+    (None, None, ['006'], 'custom-ar', [], True, None, 'Hids v4.0.0'),
+    (None, None, ['007'], 'restart-hids0', ["arg1", "arg2"], False, None, 'Hids v4.0.0'),
+    (None, None, ['001', '002', '003', '004', '005', '006'], 'restart-hids0', [], False, None, 'Hids v4.0.0'),
+    (None, None, ['001'], 'restart-hids0', ["arg1", "arg2"], False, None, 'Hids v4.2.0'),
+    (None, None, ['002'], 'restart-hids0', [], False, None, 'Hids v4.2.1'),
 ])
 @patch("wazuh.core.wazuh_queue.WazuhQueue._connect")
 @patch("wazuh.syscheck.WazuhQueue._send", return_value='1')
 @patch("wazuh.core.wazuh_queue.WazuhQueue.close")
-@patch('wazuh.core.common.AR_CONF', new=test_data_path)
+@patch('wazuh.core.common.ar_conf_path', new=test_data_path)
 @patch('wazuh.active_response.get_agents_info', return_value=full_agent_list)
 def test_run_command(mock_get_agents_info, mock_close, mock_send, mock_conn, message_exception,
                      send_exception, agent_id, command, arguments, custom, alert, version):

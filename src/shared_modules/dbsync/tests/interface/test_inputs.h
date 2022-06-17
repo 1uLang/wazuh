@@ -3,7 +3,7 @@
 
 constexpr auto input1
 {
-    R"(
+R"(
 [
 	{
 		"argvs": "auto noprompt",
@@ -8943,7 +8943,7 @@ constexpr auto input1
 
 constexpr auto input2
 {
-    R"(
+R"(
 [
 	{
 		"argvs": "auto noprompt",
@@ -17883,7 +17883,7 @@ constexpr auto input2
 
 constexpr auto diffResult
 {
-    R"(
+R"(
 [
 	{
 		"pid": 380,

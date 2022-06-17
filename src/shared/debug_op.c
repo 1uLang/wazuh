@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2021, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All rights reserved.
  *
@@ -361,13 +361,6 @@ void _mterror(const char *tag, const char * file, int line, const char * func, c
     va_end(args);
 }
 
-void _mverror(const char * file, int line, const char * func, const char *msg, va_list args)
-{
-    int level = LOGLEVEL_ERROR;
-    const char *tag = __local_name;
-    _log(level, tag, file, line, func, msg, args);
-}
-
 void _mwarn(const char * file, int line, const char * func, const char *msg, ...)
 {
     va_list args;
@@ -389,13 +382,6 @@ void _mtwarn(const char *tag, const char * file, int line, const char * func, co
     va_end(args);
 }
 
-void _mvwarn(const char * file, int line, const char * func, const char *msg, va_list args)
-{
-    int level = LOGLEVEL_WARNING;
-    const char *tag = __local_name;
-    _log(level, tag, file, line, func, msg, args);
-}
-
 void _minfo(const char * file, int line, const char * func, const char *msg, ...)
 {
     va_list args;
@@ -415,13 +401,6 @@ void _mtinfo(const char *tag, const char * file, int line, const char * func, co
     va_start(args, msg);
     _log(level, tag, file, line, func, msg, args);
     va_end(args);
-}
-
-void _mvinfo(const char * file, int line, const char * func, const char *msg, va_list args)
-{
-    int level = LOGLEVEL_INFO;
-    const char *tag = __local_name;
-    _log(level, tag, file, line, func, msg, args);
 }
 
 /* Only logs to a file */
@@ -467,16 +446,16 @@ void _merror_exit(const char * file, int line, const char * func, const char *ms
     int level = LOGLEVEL_CRITICAL;
     const char *tag = __local_name;
 
-    va_start(args, msg);
-    _log(level, tag, file, line, func, msg, args);
-    va_end(args);
-
 #ifdef WIN32
     /* If not MA */
 #ifndef MA
     WinSetError();
 #endif
 #endif
+
+    va_start(args, msg);
+    _log(level, tag, file, line, func, msg, args);
+    va_end(args);
 
     exit(1);
 }
@@ -486,16 +465,16 @@ void _mterror_exit(const char *tag, const char * file, int line, const char * fu
     va_list args;
     int level = LOGLEVEL_CRITICAL;
 
-    va_start(args, msg);
-    _log(level, tag, file, line, func, msg, args);
-    va_end(args);
-
 #ifdef WIN32
     /* If not MA */
 #ifndef MA
     WinSetError();
 #endif
 #endif
+
+    va_start(args, msg);
+    _log(level, tag, file, line, func, msg, args);
+    va_end(args);
 
     exit(1);
 }

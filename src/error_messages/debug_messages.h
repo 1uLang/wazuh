@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * January 17, 2018.
  *
  * This program is free software; you can redistribute it
@@ -29,7 +29,7 @@
 #define VU_START_REFRESH_DB   "(5414): Refreshing '%s' databases."
 #define VU_UPDATE_VU          "(5415): Inserting vulnerabilities."
 #define VU_INS_CPES_SEC       "(5416): Inserting CPEs section."
-#define VU_INS_CPES_DIC       "(5417): Inserting Wazuh's CPE dictonary."
+#define VU_INS_CPES_DIC       "(5417): Inserting Hids's CPE dictonary."
 #define VU_INS_MSU            "(5418): Inserting Microsoft Security Update dictionary."
 #define VU_INS_VUL_SEC        "(5419): Inserting %s vulnerabilities section."
 #define VU_DEB_STATUS_FEED    "(5420): Indexing vulnerabilities from the Debian Security Tracker."
@@ -45,7 +45,7 @@
 #define VU_ENDING_UPDATE      "(5430): The update of the '%s' feed finished successfully."
 #define VU_START_SCAN         "(5431): Starting vulnerability scan."
 #define VU_AG_NEVER_CON       "(5432): Agent '%s' never connected."
-#define VU_AGENT_UNSOPPORTED  "(5433): Agent '%.3d' has an unsupported Wazuh version: '%s'"
+#define VU_AGENT_UNSOPPORTED  "(5433): Agent '%.3d' has an unsupported Hids version: '%s'"
 #define VU_UNS_OS_VERSION     "(5434): Agent '%.3d' has an unsupported OS version: '%s'"
 #define VU_AG_NO_TARGET       "(5435): The analysis can not be launched because there are no target agents."
 #define VU_DEB_STATUS_FETCH   "(5436): Fetching Debian Security Tracker from '%s'"
@@ -54,7 +54,7 @@
 #define VU_AG_PART_SCAN       "(5439): A partial scan will be run on agent '%.3d'"
 #define VU_NO_PACKAGE_SCAN    "(5440): The package inventory of the agent '%.3d' is not available, but a hotfix analysis will be launched."
 #define VU_SOCKET_RETRY       "(5441): Unable to connect to socket '%s'. Waiting '%d' seconds."
-#define VU_NO_HOTFIX_AVAIL    "(5442): Hotfixes data not reported by the agent '%.3d'."
+#define VU_NO_HOTFIX_AVAIL    "(5442): It is not possible to perform a hotfix scan on agent '%.3d'"
 #define VU_OSINFO_DISABLED    "(5443): Unable to get the OS release for agent '%.3d'. It may not have the OS inventory enabled."
 #define VU_OSINFOLNX_DISABLED "(5444): Unable to get the OS version and release for agent '%.3d'. It may not have the OS inventory enabled."
 #define VU_NO_SOFTWARE        "(5445): No changes have been found with respect to the last package inventory or no packages have been indexed for agent '%.3d'"
@@ -85,7 +85,6 @@
 #define VU_FUNCTION_TIME      "(5470): It took '%ld' seconds to '%s' vulnerabilities in agent '%.3d'"
 #define VU_AGENT_FINISH       "(5471): Finished vulnerability assessment for agent '%.3d'"
 #define VU_END_SCAN           "(5472): Vulnerability scan finished."
-#define VU_HOTFIX_NOT_SYNCED  "(5473): Hotfixes data not synchronized in agent '%.3d' database."
 #define VU_NO_SRC_VERSION     "(5480): Unable to get the source '%s' version for agent '%.3d'"
 #define VU_NO_SRC_NAME        "(5481): Unable to get the source '%s' name for agent '%.3d'"
 #define VU_VULN_SEND_AG_FEED  "(5482): A total of '%d' vulnerabilities have been reported for agent '%.3d' thanks to the '%s' feed."
@@ -96,8 +95,6 @@
 #define VU_ERROR_CMP_VER      "(5487): Unknown relation '%s' between versions '%s' and '%s' for package '%s'"
 #define VU_DISCARD_CVE_ENTRY  "(5488): Package '%s' not affected by '%s' with misleading condition (%s '%s')."
 #define VU_DISCARD_DU         "(5489): '%s' vulnerability information discarded for agent '%.3d' ('KB%s'): Dynamic Updates (DU) are only available when upgrading to new Windows 10 versions."
-#define VU_REMOVED_VULN       "(5490): The vulnerability '%s' affecting '%s' was eliminated"
-#define VU_AG_BASELINE_SCAN   "(5491): A baseline scan will be run on agent '%.3d'"
 
 /* File integrity monitoring debug messages */
 #define FIM_DIFF_SKIPPED                    "(6200): Diff execution skipped for containing insecure characters."
@@ -120,7 +117,7 @@
 #define FIM_MAX_RECURSION_LEVEL             "(6217): Maximum level of recursion reached. Depth:%d recursion_level:%d '%s'"
 #define FIM_SYMBOLIC_LINK_DISCARDED         "(6218): Discarding symbolic link '%s' is already added in the configuration."
 #define FIM_SYMBOLIC_LINK_ADD               "(6219): Directory added to FIM configuration by link '%s'"
-
+#define FIM_FILE_MSG_DELETE                 "(6220): Sending delete message for file: '%s'"
 #define FIM_FREQUENCY_DIRECTORY             "(6221): Directory loaded from syscheck db: '%s'"
 #define FIM_STAT_FAILED                     "(6222): Stat() function failed on: '%s' due to [(%d)-(%s)]"
 #define FIM_SKIP_NFS                        "(6223): FIM skip_nfs=%d, '%s'::is_nfs=%d"
@@ -239,7 +236,7 @@
 #define FIM_INODES_INFO                     "(6336): Fim inode entries: %d, path count: %d"
 #define FIM_WHODATA_INVALID_UNKNOWN_UID     "(6337): The user ID could not be extracted from the event."
 #define FIM_EMPTY_DIRECTORIES_CONFIG        "(6338): Empty directories tag found in the configuration."
-
+#define FIM_DELETE_EVENT_PATH_NOCONF        "(6339): Delete event from path without configuration: '%s'"
 #define FIM_DELETE_DB_TRY                   "(6340): Failed to delete FIM database '%s'- %dº try."
 #define FIM_DELETE_DB                       "(6341): Failed to delete FIM database '%s'."
 #define FIM_FILE_LIMIT_VALUE                "(6342): Maximum number of entries to be monitored: '%u'"
@@ -261,12 +258,6 @@
 #define FIM_DIFF_FOLDER_DELETED             "(6358): Folder '%s' has been deleted."
 #define GLOB_NO_MATCH                       "(6359): No matches found for the glob pattern: '%s'"
 #define FIM_DB_FAIL_TO_GET_SCANNED_FILE     "(6360): Failed to get scanned value of '%s' - %s"
-#define FIM_WILDCARDS_UPDATE_START          "(6361): Starting configuration wildcards update."
-#define FIM_WILDCARDS_REMOVE_DIRECTORY      "(6362): Removing entry '%s' due to it has not been expanded by the wildcards"
-#define FIM_WILDCARDS_UPDATE_FINALIZE       "(6363): Configuration wildcards update finalize."
-#define FIM_REALTIME_MAXNUM_WATCHES         "(6364): Unable to add directory to real time monitoring: '%s' - Maximum size permitted."
-#define FIM_ADDED_RULE_TO_FILE              "(6365): Added directory '%s' to audit rules file."
-
 
 /* Modules messages */
 #define WM_UPGRADE_RESULT_AGENT_INFO         "(8151): Agent Information obtained: '%s'"
@@ -298,16 +289,8 @@
 #define MOD_TASK_TASKS_DB_ERROR_IN_QUERY    "(8208): Tasks DB Error reported in the result of the query, message: '%s'"
 #define MOD_TASK_TASKS_DB_ERROR_EXECUTE     "(8209): Tasks DB Cannot execute SQL query: err database '%s/%s.db'"
 
-/* Generic messages */
-#define SUCCESSFULLY_RECONNECTED_SOCKET     "(8300): Successfully reconnected to '%s'"
-
 /* Logcollector */
 
 #define LOGCOLLECTOR_FILE_NOT_EXIST           "(9000): File '%s' no longer exists."
-
-/* Analysisd */
-
-#define MESSAGE_TOO_LONG                    "(9200): Long message, cannot be processed."
-#define UNABLE_TO_SEND_INFORMATION_TO_WDB   "(9201): Unable to send dbsync information to Wazuh DB."
 
 #endif /* DEBUG_MESSAGES_H */

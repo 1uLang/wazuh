@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  *
  * This program is free software; you can redistribute it
  * and/or modify it under the terms of the GNU General Public
@@ -16,7 +16,6 @@
 #include "../wrappers/wazuh/os_net/os_net_wrappers.h"
 #include "../wrappers/wazuh/shared/labels_op_wrappers.h"
 #include "../wrappers/wazuh/wazuh_db/wdb_global_helpers_wrappers.h"
-#include "../wrappers/wazuh/shared/mq_op_wrappers.h"
 #include "../../analysisd/eventinfo.h"
 #include "../../analysisd/config.h"
 #include "../../analysisd/alerts/exec.h"
@@ -31,22 +30,19 @@ typedef struct test_struct {
 
 static int test_setup(void **state) {
     test_struct_t *init_data = NULL;
-    os_calloc(1, sizeof(test_struct_t), init_data);
-    os_calloc(1, sizeof(Eventinfo), init_data->lf);
-    os_calloc(1, sizeof(DynamicField), init_data->lf->fields);
-    os_calloc(1, sizeof(*init_data->lf->generated_rule), init_data->lf->generated_rule);
-    os_calloc(1, sizeof(OSDecoderInfo), init_data->lf->decoder_info);
-    os_calloc(1, sizeof(active_response), init_data->ar);
-    os_calloc(1, sizeof(*init_data->ar->ar_cmd), init_data->ar->ar_cmd);
+    os_calloc(1,sizeof(test_struct_t),init_data);
+    os_calloc(1,sizeof(Eventinfo),init_data->lf);
+    os_calloc(1,sizeof(*init_data->lf->generated_rule),init_data->lf->generated_rule);
+    os_calloc(1,sizeof(active_response),init_data->ar);
+    os_calloc(1,sizeof(*init_data->ar->ar_cmd),init_data->ar->ar_cmd);
 
-    init_data->lf->fields[FIM_FILE].value = "/home/vagrant/file/n44.txt";
     init_data->lf->srcip = NULL;
     init_data->lf->dstuser = NULL;
+    init_data->lf->filename = "/home/vagrant/file/n44.txt";
     init_data->lf->time.tv_sec = 160987966;
     init_data->lf->generated_rule->sigid = 554;
     init_data->lf->location = "(ubuntu) any->syscheck";
     init_data->lf->agent_id = "001";
-    init_data->lf->decoder_info->name = "syscheck_event";
 
     init_data->ar->name = "restart-wazuh0";
     init_data->ar->ar_cmd->extra_args = NULL;
@@ -59,11 +55,9 @@ static int test_setup(void **state) {
 }
 
 static int test_teardown(void **state) {
-    test_struct_t *data = (test_struct_t *)*state;
-    os_free(data->lf->decoder_info);
+    test_struct_t *data  = (test_struct_t *)*state;
     os_free(data->lf->generated_rule);
     os_free(data->ar->ar_cmd);
-    os_free(data->lf->fields);
     os_free(data->lf);
     os_free(data->ar);
     os_free(data);
@@ -73,6 +67,13 @@ static int test_teardown(void **state) {
 
 // Wrappers
 
+int __wrap_OS_SendUnix(int socket, const char *msg, int size) {
+    check_expected(socket);
+    check_expected(msg);
+    check_expected(size);
+
+    return mock();
+}
 
 int __wrap_OS_ReadXML(const char *file, OS_XML *_lxml) {
     return mock();
@@ -133,7 +134,7 @@ void test_server_success_json(void **state)
     expect_value(__wrap_OS_SendUnix, size, 0);
     will_return(__wrap_OS_SendUnix, 1);
 
-    OS_Exec(&execq, &arq, &sock, data->lf, data->ar);
+    OS_Exec(execq, &arq, &sock, data->lf, data->ar);
 }
 
 void test_all_agents_success_json_string(void **state)
@@ -212,7 +213,7 @@ void test_all_agents_success_json_string(void **state)
     expect_value(__wrap_OS_SendUnix, size, 0);
     will_return(__wrap_OS_SendUnix, 1);
 
-    OS_Exec(&execq, &arq, &sock, data->lf, data->ar);
+    OS_Exec(execq, &arq, &sock, data->lf, data->ar);
 }
 
 void test_all_agents_success_json_string_wdb(void **state)
@@ -301,7 +302,7 @@ void test_all_agents_success_json_string_wdb(void **state)
     expect_value(__wrap_OS_SendUnix, size, 0);
     will_return(__wrap_OS_SendUnix, 1);
 
-    OS_Exec(&execq, &arq, &sock, data->lf, data->ar);
+    OS_Exec(execq, &arq, &sock, data->lf, data->ar);
 }
 
 void test_all_agents_success_fail_agt_info1(void **state)
@@ -357,7 +358,7 @@ void test_all_agents_success_fail_agt_info1(void **state)
 
     expect_string(__wrap__merror, formatted_msg, "Failed to get agent '5' information from Wazuh DB.");
 
-    OS_Exec(&execq, &arq, &sock, data->lf, data->ar);
+    OS_Exec(execq, &arq, &sock, data->lf, data->ar);
 }
 
 void test_specific_agent_success_json(void **state)
@@ -402,7 +403,7 @@ void test_specific_agent_success_json(void **state)
     expect_value(__wrap_OS_SendUnix, size, 0);
     will_return(__wrap_OS_SendUnix, 1);
 
-    OS_Exec(&execq, &arq, &sock, data->lf, data->ar);
+    OS_Exec(execq, &arq, &sock, data->lf, data->ar);
 }
 
 void test_specific_agent_success_json_wdb(void **state)
@@ -452,7 +453,7 @@ void test_specific_agent_success_json_wdb(void **state)
     expect_value(__wrap_OS_SendUnix, size, 0);
     will_return(__wrap_OS_SendUnix, 1);
 
-    OS_Exec(&execq, &arq, &sock, data->lf, data->ar);
+    OS_Exec(execq, &arq, &sock, data->lf, data->ar);
 }
 
 void test_specific_agent_success_string(void **state)
@@ -488,7 +489,7 @@ void test_specific_agent_success_string(void **state)
     expect_value(__wrap_OS_SendUnix, size, 0);
     will_return(__wrap_OS_SendUnix, 1);
 
-    OS_Exec(&execq, &arq, &sock, data->lf, data->ar);
+    OS_Exec(execq, &arq, &sock, data->lf, data->ar);
 }
 
 void test_specific_agent_success_string_wdb(void **state)
@@ -529,7 +530,7 @@ void test_specific_agent_success_string_wdb(void **state)
     expect_value(__wrap_OS_SendUnix, size, 0);
     will_return(__wrap_OS_SendUnix, 1);
 
-    OS_Exec(&execq, &arq, &sock, data->lf, data->ar);
+    OS_Exec(execq, &arq, &sock, data->lf, data->ar);
 }
 
 void test_specific_agent_success_fail_agt_info1(void **state)
@@ -558,7 +559,7 @@ void test_specific_agent_success_fail_agt_info1(void **state)
 
     expect_string(__wrap__merror, formatted_msg, "Failed to get agent '2' information from Wazuh DB.");
 
-    OS_Exec(&execq, &arq, &sock, data->lf, data->ar);
+    OS_Exec(execq, &arq, &sock, data->lf, data->ar);
 }
 
 void test_remote_agent_success_json(void **state)
@@ -603,7 +604,7 @@ void test_remote_agent_success_json(void **state)
 
     will_return(__wrap_OS_GetOneContentforElement, node);
 
-    OS_Exec(&execq, &arq, &sock, data->lf, data->ar);
+    OS_Exec(execq, &arq, &sock, data->lf, data->ar);
 }
 
 void test_remote_agent_success_json_wdb(void **state)
@@ -653,7 +654,7 @@ void test_remote_agent_success_json_wdb(void **state)
 
     will_return(__wrap_OS_GetOneContentforElement, node);
 
-    OS_Exec(&execq, &arq, &sock, data->lf, data->ar);
+    OS_Exec(execq, &arq, &sock, data->lf, data->ar);
 }
 
 void test_remote_agent_success_string(void **state)
@@ -689,7 +690,7 @@ void test_remote_agent_success_string(void **state)
     expect_value(__wrap_OS_SendUnix, size, 0);
     will_return(__wrap_OS_SendUnix, 1);
 
-    OS_Exec(&execq, &arq, &sock, data->lf, data->ar);
+    OS_Exec(execq, &arq, &sock, data->lf, data->ar);
 }
 
 void test_remote_agent_success_string_wdb(void **state)
@@ -730,7 +731,7 @@ void test_remote_agent_success_string_wdb(void **state)
     expect_value(__wrap_OS_SendUnix, size, 0);
     will_return(__wrap_OS_SendUnix, 1);
 
-    OS_Exec(&execq, &arq, &sock, data->lf, data->ar);
+    OS_Exec(execq, &arq, &sock, data->lf, data->ar);
 }
 
 void test_remote_agent_success_fail_agt_info1(void **state)
@@ -759,7 +760,7 @@ void test_remote_agent_success_fail_agt_info1(void **state)
 
     expect_string(__wrap__merror, formatted_msg, "Failed to get agent '1' information from Wazuh DB.");
 
-    OS_Exec(&execq, &arq, &sock, data->lf, data->ar);
+    OS_Exec(execq, &arq, &sock, data->lf, data->ar);
 }
 
 void test_getActiveResponseInJSON_extra_args(void **state){
@@ -782,7 +783,7 @@ void test_getActiveResponseInJSON_extra_args(void **state){
 
     will_return(__wrap_OS_GetOneContentforElement, node);
 
-    getActiveResponseInJSON(data->lf, data->ar, extra_args, msg, false);
+    getActiveResponseInJSON(data->lf, data->ar, extra_args, msg);
 
     cJSON * root = cJSON_Parse(msg);
     cJSON * deviceData = cJSON_GetObjectItem(root,"parameters");
@@ -798,63 +799,6 @@ void test_getActiveResponseInJSON_extra_args(void **state){
 
     os_free(c_device);
     os_free(msg);
-}
-
-void test_send_exec_msg(void **state){
-    int socket = 10;
-    char *queue_path = "/path/to/queue";
-    char *exec_msg = "Message";
-
-    expect_OS_SendUnix_call(socket, exec_msg, 0, 0);
-
-    send_exec_msg(&socket, queue_path, exec_msg);
-}
-
-void test_send_exec_msg_reconnect_socket(void **state){
-    int socket = -1;
-    int new_socket = 1;
-    char *queue_path = "/path/to/queue";
-    char *exec_msg = "Message";
-
-    expect_StartMQ_call(queue_path, WRITE, new_socket);
-    expect_OS_SendUnix_call(new_socket, exec_msg, 0, 0);
-
-    send_exec_msg(&socket, queue_path, exec_msg);
-}
-
-void test_send_exec_msg_reconnect_socket_fail(void **state){
-    int socket = -1;
-    char *queue_path = "/path/to/queue";
-    char *exec_msg = "Message";
-    errno = 1;
-
-    expect_StartMQ_call(queue_path, WRITE, -1);
-    expect_string(__wrap__merror, formatted_msg, "(1210): Queue '/path/to/queue' not accessible: 'Operation not permitted'");
-
-    send_exec_msg(&socket, queue_path, exec_msg);
-}
-
-void test_send_exec_msg_OS_SOCKBUSY(void **state){
-    int socket = 10;
-    char *queue_path = "/path/to/queue";
-    char *exec_msg = "Message";
-
-    expect_OS_SendUnix_call(socket, exec_msg, 0, OS_SOCKBUSY);
-    expect_string(__wrap__merror, formatted_msg, "(1322): Socket busy.");
-    expect_string(__wrap__merror, formatted_msg, "(1321): Error communicating with queue '/path/to/queue'.");
-
-    send_exec_msg(&socket, queue_path, exec_msg);
-}
-
-void test_send_exec_msg_OS_TIMEOUT(void **state){
-    int socket = 10;
-    char *queue_path = "/path/to/queue";
-    char *exec_msg = "Message";
-
-    expect_OS_SendUnix_call(socket, exec_msg, 0, OS_TIMEOUT);
-    expect_string(__wrap__merror, formatted_msg, "(1321): Error communicating with queue '/path/to/queue'.");
-
-    send_exec_msg(&socket, queue_path, exec_msg);
 }
 
 int main(void)
@@ -884,14 +828,7 @@ int main(void)
 
         // getActiveResponseInJSON
         cmocka_unit_test_setup_teardown(test_getActiveResponseInJSON_extra_args, test_setup, test_teardown),
-
-        // send_exec_msg
-        cmocka_unit_test(test_send_exec_msg),
-        cmocka_unit_test(test_send_exec_msg_reconnect_socket),
-        cmocka_unit_test(test_send_exec_msg_reconnect_socket_fail),
-        cmocka_unit_test(test_send_exec_msg_OS_SOCKBUSY),
-        cmocka_unit_test(test_send_exec_msg_OS_TIMEOUT),
-        };
+    };
 
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

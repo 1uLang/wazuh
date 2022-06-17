@@ -1,6 +1,6 @@
 /*
  * Wazuh SyscollectorNormalizer
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2021, Wazuh Inc.
  * January 12, 2021.
  *
  * This program is free software; you can redistribute it
@@ -19,7 +19,6 @@
 void SysNormalizerTest::SetUp()
 {
     std::ofstream testConfigFile{TEST_CONFIG_FILE_NAME};
-
     if (testConfigFile.is_open())
     {
         testConfigFile << TEST_CONFIG_FILE_CONTENT;
@@ -48,12 +47,10 @@ TEST_F(SysNormalizerTest, ctorWrongFormatConfig)
 {
     constexpr auto WRONG_FORMAT_FILE{"wrong_format.json"};
     std::ofstream testConfigFile{WRONG_FORMAT_FILE};
-
     if (testConfigFile.is_open())
     {
         testConfigFile << R"({"exclusions":[})";
     }
-
     EXPECT_NO_THROW((SysNormalizer{WRONG_FORMAT_FILE, "macos"}));
     std::remove(WRONG_FORMAT_FILE);
 }
@@ -64,7 +61,7 @@ TEST_F(SysNormalizerTest, excludeSiriAndiTunes)
     const auto size{inputJson.size()};
     SysNormalizer normalizer{TEST_CONFIG_FILE_NAME, "macos"};
     normalizer.removeExcluded("packages", inputJson);
-    EXPECT_EQ(size, inputJson.size() + 2);
+    EXPECT_EQ(size, inputJson.size()+2);
 }
 
 TEST_F(SysNormalizerTest, excludeSingleItemNoMatch)

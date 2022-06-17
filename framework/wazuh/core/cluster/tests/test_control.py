@@ -8,8 +8,8 @@ from wazuh.core.exception import WazuhClusterError
 
 with patch('wazuh.common.getgrnam'):
     with patch('wazuh.common.getpwnam'):
-        with patch('wazuh.common.wazuh_uid'):
-            with patch('wazuh.common.wazuh_gid'):
+        with patch('wazuh.common.ossec_uid'):
+            with patch('wazuh.common.ossec_gid'):
                 sys.modules['wazuh.rbac.orm'] = MagicMock()
 
                 from wazuh.core.cluster import control
@@ -128,6 +128,7 @@ async def test_get_system_nodes():
                 result = await control.get_system_nodes()
                 assert result == [expected['items'][0]['name']]
 
+        expected_exception = WazuhInternalError(3012)
         with patch('wazuh.core.cluster.control.get_nodes', side_effect=WazuhInternalError(3012)):
             result = await control.get_system_nodes()
             assert result == WazuhError(3013)

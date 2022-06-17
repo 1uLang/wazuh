@@ -1,6 +1,6 @@
 /*
  * Wazuh SysCollector Test tool
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * October 7, 2020.
  *
  * This program is free software; you can redistribute it
@@ -20,13 +20,17 @@
 #include "sysInfo.hpp"
 #include "syscollector.hpp"
 
-constexpr int DEFAULT_SLEEP_TIME { 60 };
+constexpr auto DEFAULT_SLEEP_TIME { 60 };
+
+static void logFunction(const char* msg)
+{
+    std::cout << msg << std::endl;
+}
 
 int main(int argc, const char* argv[])
 {
     auto timedMainLoop { false };
     auto sleepTime { DEFAULT_SLEEP_TIME };
-
     if (2 == argc)
     {
         timedMainLoop = true;
@@ -42,7 +46,7 @@ int main(int argc, const char* argv[])
 
     const auto reportDiffFunction
     {
-        [](const std::string & payload)
+        [](const std::string& payload)
         {
             std::cout << "diff output payload:" << std::endl;
             std::cout << payload << std::endl;
@@ -50,7 +54,7 @@ int main(int argc, const char* argv[])
     };
     const auto reportSyncFunction
     {
-        [](const std::string & payload)
+        [](const std::string& payload)
         {
             std::cout << "sync output payload:" << std::endl;
             std::cout << payload << std::endl;
@@ -59,7 +63,7 @@ int main(int argc, const char* argv[])
 
     const auto logFunction
     {
-        [](const syscollector_log_level_t level, const std::string & log)
+        [](const syscollector_log_level_t level, const std::string& log)
         {
             static const std::map<syscollector_log_level_t, std::string> s_logStringMap
             {
@@ -74,7 +78,7 @@ int main(int argc, const char* argv[])
 
     const auto logErrorFunction
     {
-        [](const std::string & log)
+        [](const std::string& log)
         {
             std::cout << "ERROR: " << log << std::endl;
         }
@@ -83,7 +87,6 @@ int main(int argc, const char* argv[])
     const auto spInfo{ std::make_shared<SysInfo>() };
     RemoteSync::initialize(logErrorFunction);
     DBSync::initialize(logErrorFunction);
-
     try
     {
         std::thread thread
@@ -92,13 +95,12 @@ int main(int argc, const char* argv[])
             {
                 if (!timedMainLoop)
                 {
-                    while (std::cin.get() != 'q');
+                    while(std::cin.get() != 'q');
                 }
                 else
                 {
                     std::this_thread::sleep_for(std::chrono::seconds(sleepTime));
                 }
-
                 Syscollector::instance().destroy();
             }
         };
@@ -126,11 +128,10 @@ int main(int argc, const char* argv[])
             thread.join();
         }
     }
-    catch (const std::exception& ex)
+    catch(const std::exception& ex)
     {
         std::cout << ex.what() << std::endl;
     }
-
     RemoteSync::teardown();
     DBSync::teardown();
     return 0;

@@ -1,6 +1,9 @@
 ---
 test_name: GET OS SYSCOLLECTOR RBAC
 
+marks:
+  - base_tests
+
 stages:
 
   - name: Get os from an agent (Allow)
@@ -34,7 +37,7 @@ stages:
           failed_items: []
           total_affected_items: !anyint
           total_failed_items: 0
-
+        
   - name: Get os from an agent (Deny)
     request:
       verify: False
@@ -79,7 +82,7 @@ stages:
           failed_items: []
           total_affected_items: !anyint
           total_failed_items: 0
-
+        
   - name: Get hardware from an agent (Deny)
     request:
       verify: False
@@ -246,7 +249,7 @@ stages:
           failed_items: []
           total_affected_items: !anyint
           total_failed_items: 0
-
+        
   - name: Get netiface from an agent (Deny)
     request:
       verify: False
@@ -292,7 +295,7 @@ stages:
           failed_items: []
           total_affected_items: !anyint
           total_failed_items: 0
-
+        
   - name: Get netiface from an agent (Deny)
     request:
       verify: False
@@ -323,7 +326,8 @@ stages:
         error: !anyint
         data:
           affected_items:
-            - egroup: !anystr
+            - cmd: !anystr
+              egroup: !anystr
               euser: !anystr
               fgroup: !anystr
               name: !anystr
@@ -355,7 +359,7 @@ stages:
           failed_items: []
           total_affected_items: !anyint
           total_failed_items: 0
-
+        
   - name: Get netiface from an agent (Deny)
     request:
       verify: False

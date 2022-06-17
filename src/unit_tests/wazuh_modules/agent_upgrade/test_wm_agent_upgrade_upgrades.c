@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  *
  * This program is free software; you can redistribute it
  * and/or modify it under the terms of the GNU General Public
@@ -1329,7 +1329,6 @@ void test_wm_agent_upgrade_send_wpk_to_agent_upgrade_linux_ok(void **state)
 {
     (void) state;
 
-    char repository[OS_BUFFER_SIZE] = "";
     int socket = 555;
     char *lock_restart = "111 com lock_restart -1";
     char *open_file = "111 com open wb test.wpk";
@@ -1346,8 +1345,7 @@ void test_wm_agent_upgrade_send_wpk_to_agent_upgrade_linux_ok(void **state)
     wm_upgrade_task *upgrade_task = NULL;
 
     config->chunk_size = 5;
-    snprintf(repository, OS_BUFFER_SIZE-1, WM_UPGRADE_WPK_REPO_URL, 4);
-    config->wpk_repository = repository;
+    config->wpk_repository = WM_UPGRADE_WPK_REPO_URL_4_X;
 
     agent_task->agent_info->agent_id = 111;
     os_strdup("ubuntu", agent_task->agent_info->platform);
@@ -1359,7 +1357,7 @@ void test_wm_agent_upgrade_send_wpk_to_agent_upgrade_linux_ok(void **state)
     agent_task->task_info->task = upgrade_task;
 
     // wm_agent_upgrade_validate_wpk_version
-    expect_string(__wrap_wm_agent_upgrade_validate_wpk_version, wpk_repository_config, repository);
+    expect_string(__wrap_wm_agent_upgrade_validate_wpk_version, wpk_repository_config, WM_UPGRADE_WPK_REPO_URL_4_X);
     will_return(__wrap_wm_agent_upgrade_validate_wpk_version, WM_UPGRADE_SUCCESS);
 
     // wm_agent_upgrade_validate_wpk
@@ -1495,7 +1493,6 @@ void test_wm_agent_upgrade_send_wpk_to_agent_upgrade_windows_ok(void **state)
 {
     (void) state;
 
-    char repository[OS_BUFFER_SIZE] = "";
     int socket = 555;
     char *lock_restart = "111 com lock_restart -1";
     char *open_file = "111 com open wb test.wpk";
@@ -1512,8 +1509,7 @@ void test_wm_agent_upgrade_send_wpk_to_agent_upgrade_windows_ok(void **state)
     wm_upgrade_task *upgrade_task = NULL;
 
     config->chunk_size = 5;
-    snprintf(repository, OS_BUFFER_SIZE-1, WM_UPGRADE_WPK_REPO_URL, 4);
-    config->wpk_repository = repository;
+    config->wpk_repository = WM_UPGRADE_WPK_REPO_URL_4_X;
 
     agent_task->agent_info->agent_id = 111;
     os_strdup("windows", agent_task->agent_info->platform);
@@ -1525,7 +1521,7 @@ void test_wm_agent_upgrade_send_wpk_to_agent_upgrade_windows_ok(void **state)
     agent_task->task_info->task = upgrade_task;
 
     // wm_agent_upgrade_validate_wpk_version
-    expect_string(__wrap_wm_agent_upgrade_validate_wpk_version, wpk_repository_config, repository);
+    expect_string(__wrap_wm_agent_upgrade_validate_wpk_version, wpk_repository_config, WM_UPGRADE_WPK_REPO_URL_4_X);
     will_return(__wrap_wm_agent_upgrade_validate_wpk_version, WM_UPGRADE_SUCCESS);
 
     // wm_agent_upgrade_validate_wpk
@@ -1988,7 +1984,6 @@ void test_wm_agent_upgrade_send_wpk_to_agent_upgrade_run_upgrade_err(void **stat
 {
     (void) state;
 
-    char repository[OS_BUFFER_SIZE] = "";
     int socket = 555;
     char *lock_restart = "111 com lock_restart -1";
     char *open_file = "111 com open wb test.wpk";
@@ -2005,8 +2000,7 @@ void test_wm_agent_upgrade_send_wpk_to_agent_upgrade_run_upgrade_err(void **stat
     wm_upgrade_task *upgrade_task = NULL;
 
     config->chunk_size = 5;
-    snprintf(repository, OS_BUFFER_SIZE-1, WM_UPGRADE_WPK_REPO_URL, 4);
-    config->wpk_repository = repository;
+    config->wpk_repository = WM_UPGRADE_WPK_REPO_URL_4_X;
 
     agent_task->agent_info->agent_id = 111;
     os_strdup("ubuntu", agent_task->agent_info->platform);
@@ -2018,7 +2012,7 @@ void test_wm_agent_upgrade_send_wpk_to_agent_upgrade_run_upgrade_err(void **stat
     agent_task->task_info->task = upgrade_task;
 
     // wm_agent_upgrade_validate_wpk_version
-    expect_string(__wrap_wm_agent_upgrade_validate_wpk_version, wpk_repository_config, repository);
+    expect_string(__wrap_wm_agent_upgrade_validate_wpk_version, wpk_repository_config, WM_UPGRADE_WPK_REPO_URL_4_X);
     will_return(__wrap_wm_agent_upgrade_validate_wpk_version, WM_UPGRADE_SUCCESS);
 
     // wm_agent_upgrade_validate_wpk
@@ -2155,7 +2149,6 @@ void test_wm_agent_upgrade_send_wpk_to_agent_upgrade_send_sha1_err(void **state)
 {
     (void) state;
 
-    char repository[OS_BUFFER_SIZE] = "";
     int socket = 555;
     char *lock_restart = "111 com lock_restart -1";
     char *open_file = "111 com open wb test.wpk";
@@ -2170,8 +2163,7 @@ void test_wm_agent_upgrade_send_wpk_to_agent_upgrade_send_sha1_err(void **state)
     wm_upgrade_task *upgrade_task = NULL;
 
     config->chunk_size = 5;
-    snprintf(repository, OS_BUFFER_SIZE-1, WM_UPGRADE_WPK_REPO_URL, 4);
-    config->wpk_repository = repository;
+    config->wpk_repository = WM_UPGRADE_WPK_REPO_URL_4_X;
 
     agent_task->agent_info->agent_id = 111;
     os_strdup("ubuntu", agent_task->agent_info->platform);
@@ -2183,7 +2175,7 @@ void test_wm_agent_upgrade_send_wpk_to_agent_upgrade_send_sha1_err(void **state)
     agent_task->task_info->task = upgrade_task;
 
     // wm_agent_upgrade_validate_wpk_version
-    expect_string(__wrap_wm_agent_upgrade_validate_wpk_version, wpk_repository_config, repository);
+    expect_string(__wrap_wm_agent_upgrade_validate_wpk_version, wpk_repository_config, WM_UPGRADE_WPK_REPO_URL_4_X);
     will_return(__wrap_wm_agent_upgrade_validate_wpk_version, WM_UPGRADE_SUCCESS);
 
     // wm_agent_upgrade_validate_wpk
@@ -2307,7 +2299,6 @@ void test_wm_agent_upgrade_send_wpk_to_agent_upgrade_close_file_err(void **state
 {
     (void) state;
 
-    char repository[OS_BUFFER_SIZE] = "";
     int socket = 555;
     char *lock_restart = "111 com lock_restart -1";
     char *open_file = "111 com open wb test.wpk";
@@ -2321,8 +2312,7 @@ void test_wm_agent_upgrade_send_wpk_to_agent_upgrade_close_file_err(void **state
     wm_upgrade_task *upgrade_task = NULL;
 
     config->chunk_size = 5;
-    snprintf(repository, OS_BUFFER_SIZE-1, WM_UPGRADE_WPK_REPO_URL, 4);
-    config->wpk_repository = repository;
+    config->wpk_repository = WM_UPGRADE_WPK_REPO_URL_4_X;
 
     agent_task->agent_info->agent_id = 111;
     os_strdup("ubuntu", agent_task->agent_info->platform);
@@ -2334,7 +2324,7 @@ void test_wm_agent_upgrade_send_wpk_to_agent_upgrade_close_file_err(void **state
     agent_task->task_info->task = upgrade_task;
 
     // wm_agent_upgrade_validate_wpk_version
-    expect_string(__wrap_wm_agent_upgrade_validate_wpk_version, wpk_repository_config, repository);
+    expect_string(__wrap_wm_agent_upgrade_validate_wpk_version, wpk_repository_config, WM_UPGRADE_WPK_REPO_URL_4_X);
     will_return(__wrap_wm_agent_upgrade_validate_wpk_version, WM_UPGRADE_SUCCESS);
 
     // wm_agent_upgrade_validate_wpk
@@ -2441,7 +2431,6 @@ void test_wm_agent_upgrade_send_wpk_to_agent_upgrade_write_file_err(void **state
 {
     (void) state;
 
-    char repository[OS_BUFFER_SIZE] = "";
     int socket = 555;
     char *lock_restart = "111 com lock_restart -1";
     char *open_file = "111 com open wb test.wpk";
@@ -2454,8 +2443,7 @@ void test_wm_agent_upgrade_send_wpk_to_agent_upgrade_write_file_err(void **state
     wm_upgrade_task *upgrade_task = NULL;
 
     config->chunk_size = 5;
-    snprintf(repository, OS_BUFFER_SIZE-1, WM_UPGRADE_WPK_REPO_URL, 4);
-    config->wpk_repository = repository;
+    config->wpk_repository = WM_UPGRADE_WPK_REPO_URL_4_X;
 
     agent_task->agent_info->agent_id = 111;
     os_strdup("ubuntu", agent_task->agent_info->platform);
@@ -2467,7 +2455,7 @@ void test_wm_agent_upgrade_send_wpk_to_agent_upgrade_write_file_err(void **state
     agent_task->task_info->task = upgrade_task;
 
     // wm_agent_upgrade_validate_wpk_version
-    expect_string(__wrap_wm_agent_upgrade_validate_wpk_version, wpk_repository_config, repository);
+    expect_string(__wrap_wm_agent_upgrade_validate_wpk_version, wpk_repository_config, WM_UPGRADE_WPK_REPO_URL_4_X);
     will_return(__wrap_wm_agent_upgrade_validate_wpk_version, WM_UPGRADE_SUCCESS);
 
     // wm_agent_upgrade_validate_wpk
@@ -2556,7 +2544,6 @@ void test_wm_agent_upgrade_send_wpk_to_agent_upgrade_open_file_err(void **state)
 {
     (void) state;
 
-    char repository[OS_BUFFER_SIZE] = "";
     int socket = 555;
     char *lock_restart = "111 com lock_restart -1";
     char *open_file = "111 com open wb test.wpk";
@@ -2568,8 +2555,7 @@ void test_wm_agent_upgrade_send_wpk_to_agent_upgrade_open_file_err(void **state)
     wm_upgrade_task *upgrade_task = NULL;
 
     config->chunk_size = 5;
-    snprintf(repository, OS_BUFFER_SIZE-1, WM_UPGRADE_WPK_REPO_URL, 4);
-    config->wpk_repository = repository;
+    config->wpk_repository = WM_UPGRADE_WPK_REPO_URL_4_X;
 
     agent_task->agent_info->agent_id = 111;
     os_strdup("ubuntu", agent_task->agent_info->platform);
@@ -2581,7 +2567,7 @@ void test_wm_agent_upgrade_send_wpk_to_agent_upgrade_open_file_err(void **state)
     agent_task->task_info->task = upgrade_task;
 
     // wm_agent_upgrade_validate_wpk_version
-    expect_string(__wrap_wm_agent_upgrade_validate_wpk_version, wpk_repository_config, repository);
+    expect_string(__wrap_wm_agent_upgrade_validate_wpk_version, wpk_repository_config, WM_UPGRADE_WPK_REPO_URL_4_X);
     will_return(__wrap_wm_agent_upgrade_validate_wpk_version, WM_UPGRADE_SUCCESS);
 
     // wm_agent_upgrade_validate_wpk
@@ -2708,7 +2694,6 @@ void test_wm_agent_upgrade_send_wpk_to_agent_upgrade_lock_restart_err(void **sta
 {
     (void) state;
 
-    char repository[OS_BUFFER_SIZE] = "";
     int socket = 555;
     char *lock_restart = "111 com lock_restart -1";
     char *agent_res_err = "err ";
@@ -2718,8 +2703,7 @@ void test_wm_agent_upgrade_send_wpk_to_agent_upgrade_lock_restart_err(void **sta
     wm_upgrade_task *upgrade_task = NULL;
 
     config->chunk_size = 5;
-    snprintf(repository, OS_BUFFER_SIZE-1, WM_UPGRADE_WPK_REPO_URL, 4);
-    config->wpk_repository = repository;
+    config->wpk_repository = WM_UPGRADE_WPK_REPO_URL_4_X;
 
     agent_task->agent_info->agent_id = 111;
     os_strdup("ubuntu", agent_task->agent_info->platform);
@@ -2731,7 +2715,7 @@ void test_wm_agent_upgrade_send_wpk_to_agent_upgrade_lock_restart_err(void **sta
     agent_task->task_info->task = upgrade_task;
 
     // wm_agent_upgrade_validate_wpk_version
-    expect_string(__wrap_wm_agent_upgrade_validate_wpk_version, wpk_repository_config, repository);
+    expect_string(__wrap_wm_agent_upgrade_validate_wpk_version, wpk_repository_config, WM_UPGRADE_WPK_REPO_URL_4_X);
     will_return(__wrap_wm_agent_upgrade_validate_wpk_version, WM_UPGRADE_SUCCESS);
 
     // wm_agent_upgrade_validate_wpk
@@ -2779,14 +2763,12 @@ void test_wm_agent_upgrade_send_wpk_to_agent_validate_wpk_err(void **state)
 {
     (void) state;
 
-    char repository[OS_BUFFER_SIZE] = "";
     wm_manager_configs *config = state[0];
     wm_agent_task *agent_task = state[1];
     wm_upgrade_task *upgrade_task = NULL;
 
     config->chunk_size = 5;
-    snprintf(repository, OS_BUFFER_SIZE-1, WM_UPGRADE_WPK_REPO_URL, 4);
-    config->wpk_repository = repository;
+    config->wpk_repository = WM_UPGRADE_WPK_REPO_URL_4_X;
 
     agent_task->agent_info->agent_id = 111;
     os_strdup("ubuntu", agent_task->agent_info->platform);
@@ -2798,7 +2780,7 @@ void test_wm_agent_upgrade_send_wpk_to_agent_validate_wpk_err(void **state)
     agent_task->task_info->task = upgrade_task;
 
     // wm_agent_upgrade_validate_wpk_version
-    expect_string(__wrap_wm_agent_upgrade_validate_wpk_version, wpk_repository_config, repository);
+    expect_string(__wrap_wm_agent_upgrade_validate_wpk_version, wpk_repository_config, WM_UPGRADE_WPK_REPO_URL_4_X);
     will_return(__wrap_wm_agent_upgrade_validate_wpk_version, WM_UPGRADE_SUCCESS);
 
     // wm_agent_upgrade_validate_wpk
@@ -2813,14 +2795,12 @@ void test_wm_agent_upgrade_send_wpk_to_agent_validate_wpk_version_err(void **sta
 {
     (void) state;
 
-    char repository[OS_BUFFER_SIZE] = "";
     wm_manager_configs *config = state[0];
     wm_agent_task *agent_task = state[1];
     wm_upgrade_task *upgrade_task = NULL;
 
     config->chunk_size = 5;
-    snprintf(repository, OS_BUFFER_SIZE-1, WM_UPGRADE_WPK_REPO_URL, 4);
-    config->wpk_repository = repository;
+    config->wpk_repository = WM_UPGRADE_WPK_REPO_URL_4_X;
 
     agent_task->agent_info->agent_id = 111;
     os_strdup("ubuntu", agent_task->agent_info->platform);
@@ -2832,7 +2812,7 @@ void test_wm_agent_upgrade_send_wpk_to_agent_validate_wpk_version_err(void **sta
     agent_task->task_info->task = upgrade_task;
 
     // wm_agent_upgrade_validate_wpk_version
-    expect_string(__wrap_wm_agent_upgrade_validate_wpk_version, wpk_repository_config, repository);
+    expect_string(__wrap_wm_agent_upgrade_validate_wpk_version, wpk_repository_config, WM_UPGRADE_WPK_REPO_URL_4_X);
     will_return(__wrap_wm_agent_upgrade_validate_wpk_version, WM_UPGRADE_WPK_VERSION_DOES_NOT_EXIST);
 
     int res = wm_agent_upgrade_send_wpk_to_agent(agent_task, config);
@@ -2871,10 +2851,10 @@ void test_wm_agent_upgrade_start_upgrade_upgrade_ok(void **state)
 {
     (void) state;
 
-    char repository[OS_BUFFER_SIZE] = "";
     int socket = 555;
     int agent_id = 25;
     char *status = "In progress";
+
     char *lock_restart = "025 com lock_restart -1";
     char *open_file = "025 com open wb test.wpk";
     char *write_file = "025 com write 5 test.wpk test\n";
@@ -2891,8 +2871,7 @@ void test_wm_agent_upgrade_start_upgrade_upgrade_ok(void **state)
     wm_upgrade_task *upgrade_task = NULL;
 
     config->chunk_size = 5;
-    snprintf(repository, OS_BUFFER_SIZE-1, WM_UPGRADE_WPK_REPO_URL, 4);
-    config->wpk_repository = repository;
+    config->wpk_repository = WM_UPGRADE_WPK_REPO_URL_4_X;
 
     agent_task->agent_info->agent_id = agent_id;
     os_strdup("ubuntu", agent_task->agent_info->platform);
@@ -2942,7 +2921,7 @@ void test_wm_agent_upgrade_start_upgrade_upgrade_ok(void **state)
 
     // wm_agent_upgrade_send_wpk_to_agent
 
-    expect_string(__wrap_wm_agent_upgrade_validate_wpk_version, wpk_repository_config, repository);
+    expect_string(__wrap_wm_agent_upgrade_validate_wpk_version, wpk_repository_config, WM_UPGRADE_WPK_REPO_URL_4_X);
     will_return(__wrap_wm_agent_upgrade_validate_wpk_version, WM_UPGRADE_SUCCESS);
 
     will_return(__wrap_wm_agent_upgrade_validate_wpk, WM_UPGRADE_SUCCESS);
@@ -3080,11 +3059,11 @@ void test_wm_agent_upgrade_start_upgrade_upgrade_legacy_ok(void **state)
 {
     (void) state;
 
-    char repository[OS_BUFFER_SIZE] = "";
     int socket = 555;
     int agent_id = 25;
     char *status1 = "In progress";
     char *status2 = "Legacy";
+
     char *lock_restart = "025 com lock_restart -1";
     char *open_file = "025 com open wb test.wpk";
     char *write_file = "025 com write 5 test.wpk test\n";
@@ -3101,8 +3080,7 @@ void test_wm_agent_upgrade_start_upgrade_upgrade_legacy_ok(void **state)
     wm_upgrade_task *upgrade_task = NULL;
 
     config->chunk_size = 5;
-    snprintf(repository, OS_BUFFER_SIZE-1, WM_UPGRADE_WPK_REPO_URL, 4);
-    config->wpk_repository = repository;
+    config->wpk_repository = WM_UPGRADE_WPK_REPO_URL_4_X;
 
     agent_task->agent_info->agent_id = agent_id;
     os_strdup("ubuntu", agent_task->agent_info->platform);
@@ -3173,7 +3151,7 @@ void test_wm_agent_upgrade_start_upgrade_upgrade_legacy_ok(void **state)
 
     // wm_agent_upgrade_send_wpk_to_agent
 
-    expect_string(__wrap_wm_agent_upgrade_validate_wpk_version, wpk_repository_config, repository);
+    expect_string(__wrap_wm_agent_upgrade_validate_wpk_version, wpk_repository_config, WM_UPGRADE_WPK_REPO_URL_4_X);
     will_return(__wrap_wm_agent_upgrade_validate_wpk_version, WM_UPGRADE_SUCCESS);
 
     will_return(__wrap_wm_agent_upgrade_validate_wpk, WM_UPGRADE_SUCCESS);
@@ -3542,12 +3520,12 @@ void test_wm_agent_upgrade_start_upgrade_upgrade_err(void **state)
 {
     (void) state;
 
-    char repository[OS_BUFFER_SIZE] = "";
     int socket = 555;
     int agent_id = 25;
     char *status1 = "In progress";
     char *status2 = "Failed";
     char *error = "Send lock restart error";
+
     char *lock_restart = "025 com lock_restart -1";
     char *open_file = "025 com open wb test.wpk";
     char *write_file = "025 com write 5 test.wpk test\n";
@@ -3563,8 +3541,7 @@ void test_wm_agent_upgrade_start_upgrade_upgrade_err(void **state)
     wm_upgrade_task *upgrade_task = NULL;
 
     config->chunk_size = 5;
-    snprintf(repository, OS_BUFFER_SIZE-1, WM_UPGRADE_WPK_REPO_URL, 4);
-    config->wpk_repository = repository;
+    config->wpk_repository = WM_UPGRADE_WPK_REPO_URL_4_X;
 
     agent_task->agent_info->agent_id = agent_id;
     os_strdup("ubuntu", agent_task->agent_info->platform);
@@ -3634,7 +3611,7 @@ void test_wm_agent_upgrade_start_upgrade_upgrade_err(void **state)
 
     // wm_agent_upgrade_send_wpk_to_agent
 
-    expect_string(__wrap_wm_agent_upgrade_validate_wpk_version, wpk_repository_config, repository);
+    expect_string(__wrap_wm_agent_upgrade_validate_wpk_version, wpk_repository_config, WM_UPGRADE_WPK_REPO_URL_4_X);
     will_return(__wrap_wm_agent_upgrade_validate_wpk_version, WM_UPGRADE_SUCCESS);
 
     will_return(__wrap_wm_agent_upgrade_validate_wpk, WM_UPGRADE_SUCCESS);

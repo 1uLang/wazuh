@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it
@@ -12,6 +12,11 @@
 #include <stdarg.h>
 #include <setjmp.h>
 #include <cmocka.h>
+
+double __wrap_OS_AgentAntiquity(__attribute__((unused)) const char *name,
+                             __attribute__((unused)) const char *ip) {
+    return mock();
+}
 
 void __wrap_OS_RemoveAgentGroup(__attribute__((unused)) const char *id) {
     // Empty wrapper

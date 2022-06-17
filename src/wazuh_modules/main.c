@@ -1,6 +1,6 @@
 /*
  * Wazuh Module Manager
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * April 22, 2016.
  *
  * This program is free software; you can redistribute it
@@ -73,7 +73,7 @@ int main(int argc, char **argv)
         }
     }
 
-    mdebug1(WAZUH_HOMEDIR, home_path);
+    mdebug1(HIDS_HOMEDIR, home_path);
     os_free(home_path);
 
     // Setup daemon
@@ -110,7 +110,7 @@ int main(int argc, char **argv)
 
 void wm_help()
 {
-    print_out("Wazuh Module Manager - %s\nWazuh Inc.", __ossec_version);
+    print_out("Hids Module Manager - %s\nHids Inc.", __ossec_version);
     print_out(" ");
     print_out("Usage: %s -[d|f|h|t]", ARGV0);
     print_out(" ");

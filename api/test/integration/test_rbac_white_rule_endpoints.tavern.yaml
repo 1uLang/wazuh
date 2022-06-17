@@ -1,6 +1,9 @@
 ---
 test_name: GET RULES RBAC
 
+marks:
+  - rbac_tests
+
 stages:
 
   - name: Try to show the rules of the system
@@ -300,7 +303,7 @@ stages:
           total_failed_items: 0
         
 ---
-test_name: GET MITRE TECHNIQUE IDS RBAC
+test_name: GET MITRE ATTACK IDS RBAC
 
 stages:
 

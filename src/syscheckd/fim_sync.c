@@ -3,7 +3,7 @@
  * @brief Definition of FIM data synchronization library
  * @date 2019-08-28
  *
- * @copyright Copyright (C) 2015 Wazuh, Inc.
+ * @copyright Copyright (c) 2020 Wazuh, Inc.
  *
  * This program is a free software; you can redistribute it
  * and/or modify it under the terms of the GNU General Public
@@ -18,7 +18,7 @@
 #include "db/fim_db.h"
 #include "registry/registry.h"
 
-#ifdef WAZUH_UNIT_TESTING
+#ifdef HIDS_UNIT_TESTING
 /* Remove static qualifier when unit testing */
 #define static
 
@@ -54,7 +54,7 @@ void * fim_run_integrity(void * args) {
     while (1) {
         bool sync_successful = true;
 
-        mdebug2("Initializing FIM Integrity Synchronization check. Sync interval is %li seconds.", sync_interval);
+        mdebug1("Initializing FIM Integrity Synchronization check. Sync interval is %li seconds.", sync_interval);
 
         gettime(&start);
         fim_sync_checksum(FIM_TYPE_FILE, &syscheck.fim_entry_mutex);
@@ -89,7 +89,7 @@ void * fim_run_integrity(void * args) {
         }
         else {
             // Duplicate for every failure
-            mdebug2("FIM Integrity Synchronization check failed. Adjusting sync interval for next run.");
+            mdebug1("FIM Integrity Synchronization check failed. Adjusting sync interval for next run.");
             sync_interval *= 2;
             sync_interval = (sync_interval < syscheck.max_sync_interval) ? sync_interval : syscheck.max_sync_interval;
         }
@@ -193,10 +193,15 @@ void fim_sync_checksum(fim_type type, pthread_mutex_t *mutex) {
         EVP_DigestFinal_ex(ctx, digest, &digest_size);
         OS_SHA1_Hexdigest(digest, hexdigest);
 
-        fim_send_sync_control(component, INTEGRITY_CHECK_GLOBAL, fim_sync_cur_id, start, top, NULL, hexdigest);
+        char * plain = dbsync_check_msg(component, INTEGRITY_CHECK_GLOBAL, fim_sync_cur_id, start, top, NULL, hexdigest);
+        fim_send_sync_msg(component, plain);
+
+        os_free(plain);
 
     } else { // If database is empty
-        fim_send_sync_control(component, INTEGRITY_CLEAR, fim_sync_cur_id, NULL, NULL, NULL, NULL);
+        char * plain = dbsync_check_msg(component, INTEGRITY_CLEAR, fim_sync_cur_id, NULL, NULL, NULL, NULL);
+        fim_send_sync_msg(component, plain);
+        os_free(plain);
     }
 
 end:
@@ -207,6 +212,7 @@ end:
 
 void fim_sync_checksum_split(const char * start, const char * top, long id) {
     fim_entry *entry = NULL;
+    cJSON *file_data = NULL;
     fim_type type;
     int range_size;
     const char *component;
@@ -227,23 +233,31 @@ void fim_sync_checksum_split(const char * start, const char * top, long id) {
         component = FIM_COMPONENT_FILE;
     }
 
+    w_mutex_lock(&syscheck.fim_entry_mutex);
     if (fim_db_get_count_range(syscheck.database, type, start, top, &range_size) != FIMDB_OK) {
         merror(FIM_DB_ERROR_COUNT_RANGE, start, top);
         range_size = 0;
     }
+    w_mutex_unlock(&syscheck.fim_entry_mutex)
 
     switch (range_size) {
     case 0:
         return;
 
     case 1:
+        w_mutex_lock(&syscheck.fim_entry_mutex);
         entry = fim_db_get_entry_from_sync_msg(syscheck.database, type, start);
+        w_mutex_unlock(&syscheck.fim_entry_mutex);
 
         if (entry == NULL) {
             merror(FIM_DB_ERROR_GET_PATH, start);
             return;
         }
-        fim_send_sync_state(component, fim_entry_json(start, entry));
+
+        file_data = fim_entry_json(start, entry);
+        char * plain = dbsync_state_msg(component, file_data);
+        fim_send_sync_msg(component, plain);
+        os_free(plain);
         free_entry(entry);
         return;
 
@@ -254,23 +268,30 @@ void fim_sync_checksum_split(const char * start, const char * top, long id) {
         EVP_DigestInit(ctx_left, EVP_sha1());
         EVP_DigestInit(ctx_right, EVP_sha1());
 
+        w_mutex_lock(&syscheck.fim_entry_mutex);
         result = fim_db_get_checksum_range(syscheck.database, type, start, top, range_size, ctx_left, ctx_right,
                                             &str_pathlh, &str_pathuh);
+        w_mutex_unlock(&syscheck.fim_entry_mutex)
 
         if (result == FIMDB_OK) {
             unsigned char digest[EVP_MAX_MD_SIZE] = {0};
             unsigned int digest_size = 0;
             os_sha1 hexdigest;
+            char *plain;
 
             // Send message with checksum of first half
             EVP_DigestFinal_ex(ctx_left, digest, &digest_size);
             OS_SHA1_Hexdigest(digest, hexdigest);
-            fim_send_sync_control(component, INTEGRITY_CHECK_LEFT, id, start, str_pathlh, str_pathuh, hexdigest);
+            plain = dbsync_check_msg(component, INTEGRITY_CHECK_LEFT, id, start, str_pathlh, str_pathuh, hexdigest);
+            fim_send_sync_msg(component, plain);
+            os_free(plain);
 
             // Send message with checksum of second half
             EVP_DigestFinal_ex(ctx_right, digest, &digest_size);
             OS_SHA1_Hexdigest(digest, hexdigest);
-            fim_send_sync_control(component, INTEGRITY_CHECK_RIGHT, id, str_pathuh, top, "", hexdigest);
+            plain = dbsync_check_msg(component, INTEGRITY_CHECK_RIGHT, id, str_pathuh, top, "", hexdigest);
+            fim_send_sync_msg(component, plain);
+            os_free(plain);
         }
 
         os_free(str_pathlh);
@@ -300,13 +321,16 @@ void fim_sync_send_list(const char *start, const char *top) {
         component = FIM_COMPONENT_FILE;
     }
 
+    w_mutex_lock(&syscheck.fim_entry_mutex);
     if (fim_db_get_path_range(syscheck.database, type, start, top, &file, syscheck.database_store) != FIMDB_OK) {
         merror(FIM_DB_ERROR_SYNC_DB);
         if (file != NULL) {
             fim_db_clean_file(&file, syscheck.database_store);
         }
+        w_mutex_unlock(&syscheck.fim_entry_mutex);
         return;
     }
+    w_mutex_unlock(&syscheck.fim_entry_mutex);
 
     if (file == NULL) {
         return;
@@ -319,8 +343,12 @@ void fim_sync_send_list(const char *start, const char *top) {
 
     for (it = 0; (fim_db_read_line_from_file(file, syscheck.database_store, it, &line) == 0) ; it++) {
         fim_entry *entry;
+        cJSON *file_data;
+        char *plain;
 
+        w_mutex_lock(&syscheck.fim_entry_mutex);
         entry = fim_db_get_entry_from_sync_msg(syscheck.database, type, line);
+        w_mutex_unlock(&syscheck.fim_entry_mutex);
 
         if (entry == NULL) {
             merror(FIM_DB_ERROR_GET_PATH, line);
@@ -328,7 +356,10 @@ void fim_sync_send_list(const char *start, const char *top) {
             continue;
         }
 
-        fim_send_sync_state(component, fim_entry_json(line, entry));
+        file_data = fim_entry_json(line, entry);
+        plain = dbsync_state_msg(component, file_data);
+        fim_send_sync_msg(component, plain);
+        os_free(plain);
         os_free(line);
         free_entry(entry);
     }

@@ -1,0 +1,16 @@
+[Unit]
+Description=Hids agent
+Wants=network-online.target
+After=network.target network-online.target
+
+[Service]
+Type=forking
+
+ExecStart=/usr/bin/env WAZUH_HOME_TMP/bin/hids-control start
+ExecStop=/usr/bin/env WAZUH_HOME_TMP/bin/hids-control stop
+ExecReload=/usr/bin/env WAZUH_HOME_TMP/bin/hids-control reload
+KillMode=none
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

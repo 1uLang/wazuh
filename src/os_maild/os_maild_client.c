@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All rights reserved.
  *
@@ -330,7 +330,9 @@ MailMsg *OS_RecvMailQ(file_queue *fileq, struct tm *p, MailConfig *Mail, MailMsg
                  al_data->rule,
                  al_data->comment);
 
-        snprintf(msg_sms_tmp->body, BODY_SIZE, "%.127s", logs);
+
+        strncpy(msg_sms_tmp->body, logs, 128);
+        msg_sms_tmp->body[127] = '\0';
         *msg_sms = msg_sms_tmp;
     }
 
@@ -691,7 +693,9 @@ MailMsg *OS_RecvMailQ_JSON(file_queue *fileq, MailConfig *Mail, MailMsg **msg_sm
                  rule_id,
                  alert_desc);
 
-        snprintf(msg_sms_tmp->body, BODY_SIZE, "%.127s", logs);
+
+        strncpy(msg_sms_tmp->body, logs, 128);
+        msg_sms_tmp->body[127] = '\0';
         *msg_sms = msg_sms_tmp;
     }
 
@@ -728,8 +732,7 @@ void PrintTable(cJSON *item, char *printed, size_t body_size, char *tab, int cou
 
     /* Like tab, tab_child is used to derterminate the number of times a line must be tabbed. */
     os_malloc(256*sizeof(char), tab_child);
-    strncpy(tab_child, tab, 256*sizeof(char)-1);
-    tab_child[256*sizeof(char)-1] = '\0';
+    strncpy(tab_child, tab, 256*sizeof(char));
 
 
     /* If final node, it print */
@@ -741,7 +744,11 @@ void PrintTable(cJSON *item, char *printed, size_t body_size, char *tab, int cou
         log_size = strlen(key) + strlen(tab) + strlen(item->string) + strlen(delimitator) + strlen(endline);
 
         if (body_size > log_size) {
-            snprintf(printed + strlen(printed), body_size, "%s%s%s%s%s", tab, item->string, delimitator, key, endline);
+            strncat(printed, tab, strlen(tab));
+            strncat(printed, item->string, strlen(item->string));
+            strncat(printed, delimitator, strlen(delimitator));
+            strncat(printed, key, body_size);
+            strncat(printed, endline, strlen(endline));
             body_size -= log_size;
         }
 
@@ -755,7 +762,9 @@ void PrintTable(cJSON *item, char *printed, size_t body_size, char *tab, int cou
 
         if(body_size > log_size){
             item->string[0] = toupper(item->string[0]);
-            snprintf(printed + strlen(printed), body_size, "%s%s%s", tab, item->string, delimitator);
+            strncat(printed, tab, strlen(tab));
+            strncat(printed, item->string, strlen(item->string));
+            strncat(printed, delimitator, strlen(delimitator));
             body_size -= log_size;
         }
 
@@ -764,7 +773,8 @@ void PrintTable(cJSON *item, char *printed, size_t body_size, char *tab, int cou
             log_size = strlen(key) + strlen(space);
 
             if(body_size > log_size){
-                snprintf(printed + strlen(printed), body_size, "%s%s", key, space);
+                strncat(printed, json_array->valuestring, body_size);
+                strncat(printed, space, strlen(space));
                 body_size -= log_size;
             }
 
@@ -773,8 +783,8 @@ void PrintTable(cJSON *item, char *printed, size_t body_size, char *tab, int cou
         }
 
         if(body_size > strlen(endline)){
-            strncat(printed, endline, body_size);
-            body_size -= strlen(endline);
+            strncat(printed, endline, strlen(endline));
+            body_size -= log_size;
         }
 
     }
@@ -787,7 +797,9 @@ void PrintTable(cJSON *item, char *printed, size_t body_size, char *tab, int cou
 
                 if (body_size > log_size) {
                     item->string[0] = toupper(item->string[0]);
-                    snprintf(printed + strlen(printed), body_size, "%s%s%s", tab, item->string, endline);
+                    strncat(printed, tab, strlen(tab));
+                    strncat(printed, item->string, strlen(item->string));
+                    strncat(printed, endline, strlen(endline));
                     body_size -= log_size;
                 }
             }

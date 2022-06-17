@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright (C) 2015, Wazuh Inc.
+# Copyright (C) 2015-2020, Wazuh Inc.
 # Created by Wazuh, Inc. <info@wazuh.com>.
 # This program is free software; you can redistribute it and/or modify it under the terms of GPLv2
 
@@ -26,10 +26,10 @@ try:
     from wazuh.core.cluster.dapi.dapi import DistributedAPI
     from wazuh.core.exception import WazuhError
 except Exception as e:
-    print("Error importing 'Wazuh' package.\n\n{0}\n".format(e))
+    print("Error importing 'hids' package.\n\n{0}\n".format(e))
     exit()
 
-logger = logging.getLogger('wazuh')
+logger = logging.getLogger('hids')
 
 
 # Functions
@@ -203,8 +203,8 @@ if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-a", "--agents", nargs='+', help="Agent IDs to upgrade.")
     arg_parser.add_argument("-r", "--repository", type=str, help="Specify a repository URL. [Default: {0}]".format(
-        common.WPK_REPO_URL_4_X))
-    arg_parser.add_argument("-v", "--version", type=str, help="Version to upgrade. [Default: latest Wazuh version]")
+        common.wpk_repo_url_4_x))
+    arg_parser.add_argument("-v", "--version", type=str, help="Version to upgrade. [Default: latest hids version]")
     arg_parser.add_argument("-F", "--force", action="store_true",
                             help="Allows reinstall same version and downgrade version.")
     arg_parser.add_argument("-s", "--silent", action="store_true", help="Do not show output.")

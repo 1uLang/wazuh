@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 ###
-#  Copyright (C) 2015, Wazuh Inc.All rights reserved.
+#  Copyright (C) 2015-2020, Wazuh Inc.All rights reserved.
 #  Wazuh.com
 #
 #  This program is free software; you can redistribute it
@@ -11,7 +11,7 @@
 ###
 
 # Instructions:
-#  - Use the embedded interpreter to run the script: {wazuh_path}/framework/python/bin/python3 get_agents.py
+#  - Use the embedded interpreter to run the script: {hids_path}/framework/python/bin/python3 get_agents.py
 
 import json
 

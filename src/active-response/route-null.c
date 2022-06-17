@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2021, Wazuh Inc.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it
@@ -10,7 +10,6 @@
 #include "active_responses.h"
 
 #define ROUTE "route"
-#define ROUTE_PATH "C:\\Windows\\System32\\route.exe"
 
 int main (int argc, char **argv) {
     (void)argc;
@@ -67,7 +66,10 @@ int main (int argc, char **argv) {
 
     if (!strcmp("Linux", uname_buffer.sysname)) {
         if (action == ADD_COMMAND) {
-            char *exec_cmd1[5] = { ROUTE, "add", (char *)srcip, "reject", NULL };
+            char *exec_cmd1[5] = { NULL, NULL, NULL, NULL, NULL };
+
+            const char *arg1[5] = { ROUTE, "add", srcip, "reject", NULL };
+            memcpy(exec_cmd1, arg1, sizeof(exec_cmd1));
 
             wfd = wpopenv(ROUTE, exec_cmd1, W_BIND_STDERR);
             if (!wfd) {
@@ -76,7 +78,10 @@ int main (int argc, char **argv) {
                 wpclose(wfd);
             }
         } else {
-            char *exec_cmd1[5] = { ROUTE, "del", (char *)srcip, "reject", NULL };
+            char *exec_cmd1[5] = { NULL, NULL, NULL, NULL, NULL };
+
+            const char *arg1[5] = { ROUTE, "del", srcip, "reject", NULL };
+            memcpy(exec_cmd1, arg1, sizeof(exec_cmd1));
 
             wfd = wpopenv(ROUTE, exec_cmd1, W_BIND_STDERR);
             if (!wfd) {
@@ -87,7 +92,10 @@ int main (int argc, char **argv) {
         }
     } else if (!strcmp("FreeBSD", uname_buffer.sysname)) {
         if (action == ADD_COMMAND) {
-            char *exec_cmd1[7] = { ROUTE, "-q", "add", (char *)srcip, "127.0.0.1", "-blackhole", NULL };
+            char *exec_cmd1[7] = { NULL, NULL, NULL, NULL, NULL, NULL, NULL };
+
+            const char *arg1[7] = { ROUTE, "-q", "add", srcip, "127.0.0.1", "-blackhole", NULL };
+            memcpy(exec_cmd1, arg1, sizeof(exec_cmd1));
 
             wfd = wpopenv(ROUTE, exec_cmd1, W_BIND_STDERR);
             if (!wfd) {
@@ -96,7 +104,10 @@ int main (int argc, char **argv) {
                 wpclose(wfd);
             }
         } else {
-            char *exec_cmd1[7] = { ROUTE, "-q", "delete", (char *)srcip, "127.0.0.1", "-blackhole", NULL };
+            char *exec_cmd1[7] = { NULL, NULL, NULL, NULL, NULL, NULL, NULL };
+
+            const char *arg1[7] = { ROUTE, "-q", "delete", srcip, "127.0.0.1", "-blackhole", NULL };
+            memcpy(exec_cmd1, arg1, sizeof(exec_cmd1));
 
             wfd = wpopenv(ROUTE, exec_cmd1, W_BIND_STDERR);
             if (!wfd) {
@@ -109,12 +120,10 @@ int main (int argc, char **argv) {
         write_debug_file(argv[0], "Invalid system");
     }
 #else
-    char log_msg[OS_MAXSTR];
-
     if (action == ADD_COMMAND) {
         const char *regex = ".*Default Gateway.*[0-9][0-9]*\\.[0-9][0-9]*\\.[0-9][0-9]*\\.[0-9][0-9]*";
         const char *tmp_file = "default-gateway.txt";
-        char gateway[IPSIZE + 1] = {0};
+        char *gateway = NULL;
 
         char cmd[OS_MAXSTR + 1];
         snprintf(cmd, OS_MAXSTR, "%%WINDIR%%\\system32\\ipconfig.exe | %%WINDIR%%\\system32\\findstr.exe /R /C:\"%s\" > %s", regex, tmp_file);
@@ -126,44 +135,28 @@ int main (int argc, char **argv) {
             while (fgets(output_buf, OS_MAXSTR, fp)) {
                 char *ptr = strchr(output_buf, ':');
                 if (ptr != NULL) {
-                    snprintf(gateway, sizeof(gateway), "%s", ptr + 2);
+                    os_free(gateway);
+                    os_strdup(ptr+1, gateway);
                 }
             }
             fclose(fp);
         }
         remove(tmp_file);
 
-        if (gateway[0]) {
-            char *exec_args_add[8] = { ROUTE_PATH, "-p", "ADD", (char *)srcip, "MASK", "255.255.255.255", gateway, NULL };
-
-            wfd_t *wfd = wpopenv(ROUTE_PATH, exec_args_add, W_BIND_STDERR);
-            if (!wfd) {
-                memset(log_msg, '\0', OS_MAXSTR);
-                snprintf(log_msg, OS_MAXSTR -1, "Unable to run %s, action: 'ADD'", ROUTE_PATH);
-                write_debug_file(argv[0], log_msg);
-            }
-            else {
-                wpclose(wfd);
-            }
+        if (gateway) {
+            snprintf(cmd, OS_MAXSTR, "%%WINDIR%%\\system32\\route.exe -p ADD %s MASK 255.255.255.255 %s", srcip, gateway);
+            system(cmd);
+            os_free(gateway);
         } else {
             write_debug_file(argv[0], "Couldn't get default gateway");
             cJSON_Delete(input_json);
             return OS_INVALID;
         }
     } else {
-        char *exec_args_delete[4] = { ROUTE_PATH, "DELETE", (char *)srcip, NULL };
-
-        wfd_t *wfd = wpopenv(ROUTE_PATH, exec_args_delete, W_BIND_STDERR);
-        if (!wfd) {
-            memset(log_msg, '\0', OS_MAXSTR);
-            snprintf(log_msg, OS_MAXSTR -1, "Unable to run %s, action: 'DELETE'", ROUTE_PATH);
-            write_debug_file(argv[0], log_msg);
-        }
-        else {
-            wpclose(wfd);
-        }
+        char cmd[OS_MAXSTR + 1];
+		snprintf(cmd, OS_MAXSTR, "%%WINDIR%%\\system32\\route.exe DELETE %s", srcip);
+        system(cmd);
     }
-
 #endif
 
     write_debug_file(argv[0], "Ended");

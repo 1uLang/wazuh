@@ -2,7 +2,7 @@
 
  ###
  # Integration of Wazuh agent with Kaspersky endpoint security for Linux
- # Copyright (C) 2015, Wazuh Inc.
+ # Copyright (C) 2015-2020, Wazuh Inc.
  #
  # This program is free software; you can redistribute it and/or modify
  # it under the terms of the GNU General Public License as published by
@@ -317,7 +317,7 @@ def send_msg(wazuh_queue, msg):
 	try:
 		s.connect(wazuh_queue)
 	except:
-		print('Error: Wazuh must be running.')
+		print('Error: Hids must be running.')
 		sys.exit(1)
 	s.send(content.encode())
 	s.close()
@@ -329,7 +329,7 @@ def send_msg(wazuh_queue, msg):
 
 def main():
     ar_log()
-    set_logger('wazuh-kaspersky', foreground=args.verbose)
+    set_logger('hids-kaspersky', foreground=args.verbose)
     run_kaspersky()
 
 if __name__ == "__main__":

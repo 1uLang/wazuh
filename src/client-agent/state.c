@@ -1,7 +1,7 @@
 /* Agent state management functions
  * August 2, 2017
  *
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * All right reserved.
  *
  * This program is free software; you can redistribute it
@@ -13,7 +13,7 @@
 #include <pthread.h>
 #include "state.h"
 
-#ifdef WAZUH_UNIT_TESTING
+#ifdef HIDS_UNIT_TESTING
 // Remove STATIC qualifier from tests
 #define STATIC
 #else
@@ -33,18 +33,11 @@ void w_agentd_state_init() {
     interval = getDefine_Int("agent", "state_interval", 0, 86400);
 }
 
-#ifdef WIN32
-DWORD WINAPI state_main(__attribute__((unused)) LPVOID arg) {
-#else
 void * state_main(__attribute__((unused)) void * args) {
-#endif
+
     if (!interval) {
         minfo("State file is disabled.");
-#ifdef WIN32
-        return 0;
-#else
         return NULL;
-#endif
     }
 
     mdebug1("State file updating thread started.");
@@ -54,11 +47,7 @@ void * state_main(__attribute__((unused)) void * args) {
         sleep(interval);
     }
 
-#ifdef WIN32
-        return 0;
-#else
-        return NULL;
-#endif
+    return NULL;
 }
 
 int write_state() {

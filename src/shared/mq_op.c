@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All rights reserved.
  *
@@ -40,6 +40,7 @@ int StartMQ(const char *path, short int type, short int n_attempts)
         }
 
         if (rc < 0) {
+            merror(QUEUE_ERROR, path, strerror(errno));
             return OS_INVALID;
         }
 
@@ -49,29 +50,17 @@ int StartMQ(const char *path, short int type, short int n_attempts)
     }
 }
 
-/* Reconnect to message queue */
-int MQReconnectPredicated(const char *path, bool (*fn_ptr)()) {
-    int rc = 0;
-    while ((rc = OS_ConnectUnixDomain(path, SOCK_DGRAM, OS_MAXSTR + 256)), rc < 0){
-        if ((*fn_ptr)()) {
-            return OS_INVALID;
-        }
-        merror(UNABLE_TO_RECONNECT, path, strerror(errno), errno);
-        sleep(5);
-    }
-
-    mdebug1(SUCCESSFULLY_RECONNECTED_SOCKET, path);
-    mdebug1(MSG_SOCKET_SIZE, OS_getsocketsize(rc));
-    return (rc);
-}
-
-/* Send message primitive. */
-static int SendMSGAction(int queue, const char *message, const char *locmsg, char loc) {
+/* Send a message to the queue */
+int SendMSG(int queue, const char *message, const char *locmsg, char loc)
+{
     int __mq_rcode;
     char tmpstr[OS_MAXSTR + 1];
     static int reported = 0;
 
     tmpstr[OS_MAXSTR] = '\0';
+
+    /* Check for global locks */
+    os_wait();
 
     if (loc == SECURE_MQ) {
         loc = message[0];
@@ -115,20 +104,6 @@ static int SendMSGAction(int queue, const char *message, const char *locmsg, cha
     }
 
     return (0);
-}
-
-/* Send a message with predicated to run out from while. */
-int SendMSGPredicated(int queue, const char *message, const char *locmsg, char loc, bool (*fn_ptr)()) {
-    /* Check for global locks */
-    os_wait_predicate(fn_ptr);
-    return SendMSGAction(queue, message, locmsg, loc);
-}
-
-/* Send a message to the queue */
-int SendMSG(int queue, const char *message, const char *locmsg, char loc) {
-    /* Check for global locks */
-    os_wait();
-    return SendMSGAction(queue, message, locmsg, loc);
 }
 
 /* Send a message to socket */

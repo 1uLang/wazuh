@@ -1,4 +1,4 @@
-/* Copyright (C) 2015, Wazuh Inc.
+/* Copyright (C) 2015-2020, Wazuh Inc.
  * Copyright (C) 2009 Trend Micro Inc.
  * All right reserved.
  *
@@ -14,7 +14,7 @@
 #include "agentd.h"
 
 #ifndef ARGV0
-#define ARGV0 "wazuh-agentd"
+#define ARGV0 "hids-agentd"
 #endif
 
 
@@ -136,7 +136,7 @@ int main(int argc, char **argv)
         }
     }
 
-    mdebug1(WAZUH_HOMEDIR, home_path);
+    mdebug1(HIDS_HOMEDIR, home_path);
     os_free(home_path);
     mdebug1(STARTUP_MSG, (int)getpid());
 

@@ -1,6 +1,6 @@
 /*
  * Wazuh SQLite integration
- * Copyright (C) 2015, Wazuh Inc.
+ * Copyright (C) 2015-2020, Wazuh Inc.
  * July 5, 2016.
  *
  * This program is free software; you can redistribute it
@@ -209,10 +209,10 @@ void test_wdb_create_agent_db_error_getting_ids(void **state)
     // Getting IDs
     expect_string(__wrap_Privsep_GetUser, name, "root");
     will_return(__wrap_Privsep_GetUser, (uid_t) - 1);
-    expect_string(__wrap_Privsep_GetGroup, name, "wazuh");
+    expect_string(__wrap_Privsep_GetGroup, name, "ossec");
     will_return(__wrap_Privsep_GetGroup, (gid_t) - 1);
     will_return(__wrap_strerror, "error");
-    expect_string(__wrap__merror, formatted_msg, "(1203): Invalid user 'root' or group 'wazuh' given: error (0)");
+    expect_string(__wrap__merror, formatted_msg, "(1203): Invalid user 'root' or group 'ossec' given: error (0)");
 
     ret = wdb_create_agent_db(agent_id, agent_name);
 
@@ -246,7 +246,7 @@ void test_wdb_create_agent_db_error_changing_owner(void **state)
     // Getting IDs
     expect_string(__wrap_Privsep_GetUser, name, "root");
     will_return(__wrap_Privsep_GetUser, 0);
-    expect_string(__wrap_Privsep_GetGroup, name, "wazuh");
+    expect_string(__wrap_Privsep_GetGroup, name, "ossec");
     will_return(__wrap_Privsep_GetGroup, 0);
     // Changing owner
     expect_string(__wrap_chown, __file, "var/db/agents/001-agent1.db");
@@ -288,7 +288,7 @@ void test_wdb_create_agent_db_error_changing_mode(void **state)
     // Getting IDs
     expect_string(__wrap_Privsep_GetUser, name, "root");
     will_return(__wrap_Privsep_GetUser, 0);
-    expect_string(__wrap_Privsep_GetGroup, name, "wazuh");
+    expect_string(__wrap_Privsep_GetGroup, name, "ossec");
     will_return(__wrap_Privsep_GetGroup, 0);
     // Changing owner
     expect_string(__wrap_chown, __file, "var/db/agents/001-agent1.db");
@@ -333,7 +333,7 @@ void test_wdb_create_agent_db_success(void **state)
     // Getting IDs
     expect_string(__wrap_Privsep_GetUser, name, "root");
     will_return(__wrap_Privsep_GetUser, 0);
-    expect_string(__wrap_Privsep_GetGroup, name, "wazuh");
+    expect_string(__wrap_Privsep_GetGroup, name, "ossec");
     will_return(__wrap_Privsep_GetGroup, 0);
     // Changing owner
     expect_string(__wrap_chown, __file, "var/db/agents/001-agent1.db");
@@ -364,7 +364,7 @@ void test_wdb_insert_agent_error_json(void **state)
 
     will_return(__wrap_cJSON_CreateObject, NULL);
 
-    expect_string(__wrap__mdebug1, formatted_msg, "Error creating data JSON for Wazuh DB.");
+    expect_string(__wrap__mdebug1, formatted_msg, "Error creating data JSON for Hids DB.");
 
     ret = wdb_insert_agent(id, name, ip, register_ip, internal_key, group, keep_date, NULL);
 
@@ -621,7 +621,7 @@ void test_wdb_insert_agent_success(void **state)
     // Getting IDs
     expect_string(__wrap_Privsep_GetUser, name, "root");
     will_return(__wrap_Privsep_GetUser, 0);
-    expect_string(__wrap_Privsep_GetGroup, name, "wazuh");
+    expect_string(__wrap_Privsep_GetGroup, name, "ossec");
     will_return(__wrap_Privsep_GetGroup, 0);
     // Changing owner
     expect_string(__wrap_chown, __file, "var/db/agents/001-agent1.db");
@@ -736,7 +736,7 @@ void test_wdb_insert_agent_success_keep_date(void **state)
     // Getting IDs
     expect_string(__wrap_Privsep_GetUser, name, "root");
     will_return(__wrap_Privsep_GetUser, 0);
-    expect_string(__wrap_Privsep_GetGroup, name, "wazuh");
+    expect_string(__wrap_Privsep_GetGroup, name, "ossec");
     will_return(__wrap_Privsep_GetGroup, 0);
     // Changing owner
     expect_string(__wrap_chown, __file, "var/db/agents/001-agent1.db");
@@ -762,7 +762,7 @@ void test_wdb_update_agent_name_error_json(void **state)
 
     will_return(__wrap_cJSON_CreateObject, NULL);
 
-    expect_string(__wrap__mdebug1, formatted_msg, "Error creating data JSON for Wazuh DB.");
+    expect_string(__wrap__mdebug1, formatted_msg, "Error creating data JSON for Hids DB.");
 
     ret = wdb_update_agent_name(id, name, NULL);
 
@@ -974,7 +974,7 @@ void test_wdb_update_agent_data_error_json(void **state)
 
     will_return(__wrap_cJSON_CreateObject, NULL);
 
-    expect_string(__wrap__mdebug1, formatted_msg, "Error creating data JSON for Wazuh DB.");
+    expect_string(__wrap__mdebug1, formatted_msg, "Error creating data JSON for Hids DB.");
 
     ret = wdb_update_agent_data(agent_data, NULL);
 
@@ -1441,7 +1441,7 @@ void test_wdb_get_agent_info_error_no_json_response(void **state) {
     will_return(__wrap_wdbc_query_parse_json, 0);
     will_return(__wrap_wdbc_query_parse_json, NULL);
 
-    expect_string(__wrap__merror, formatted_msg, "Error querying Wazuh DB to get the agent's 1 information.");
+    expect_string(__wrap__merror, formatted_msg, "Error querying Hids DB to get the agent's 1 information.");
 
     root = wdb_get_agent_info(id, NULL);
 
@@ -1471,7 +1471,7 @@ void test_wdb_get_agent_labels_error_no_json_response(void **state) {
     will_return(__wrap_wdbc_query_parse_json, 0);
     will_return(__wrap_wdbc_query_parse_json, NULL);
 
-    expect_string(__wrap__merror, formatted_msg, "Error querying Wazuh DB to get the agent's 1 labels.");
+    expect_string(__wrap__merror, formatted_msg, "Error querying Hids DB to get the agent's 1 labels.");
 
     root = wdb_get_agent_labels(id, NULL);
 
@@ -1605,7 +1605,7 @@ void test_wdb_update_agent_keepalive_error_json(void **state)
 
     will_return(__wrap_cJSON_CreateObject, NULL);
 
-    expect_string(__wrap__mdebug1, formatted_msg, "Error creating data JSON for Wazuh DB.");
+    expect_string(__wrap__mdebug1, formatted_msg, "Error creating data JSON for Hids DB.");
 
     ret = wdb_update_agent_keepalive(id, connection_status, sync_status, NULL);
 
@@ -1796,7 +1796,7 @@ void test_wdb_update_agent_connection_status_error_json(void **state)
 
     will_return(__wrap_cJSON_CreateObject, NULL);
 
-    expect_string(__wrap__mdebug1, formatted_msg, "Error creating data JSON for Wazuh DB.");
+    expect_string(__wrap__mdebug1, formatted_msg, "Error creating data JSON for Hids DB.");
 
     ret = wdb_update_agent_connection_status(id, connection_status, sync_status, NULL);
 
@@ -2085,7 +2085,7 @@ void test_wdb_get_agent_name_error_no_json_response(void **state) {
     will_return(__wrap_wdbc_query_parse_json, 0);
     will_return(__wrap_wdbc_query_parse_json, NULL);
 
-    expect_string(__wrap__merror, formatted_msg, "Error querying Wazuh DB to get the agent's 1 name.");
+    expect_string(__wrap__merror, formatted_msg, "Error querying Hids DB to get the agent's 1 name.");
 
     name = wdb_get_agent_name(id, NULL);
 
@@ -2208,56 +2208,6 @@ void test_wdb_remove_agent_db_success(void **state) {
 }
 
 /* Tests wdb_remove_agent */
-
-void test_wdb_remove_agent_remove_db_error(void **state)
-{
-    cJSON *root = NULL;
-    cJSON *row = NULL;
-    cJSON *str = NULL;
-    int ret = 0;
-    int id = 1;
-
-    char *query_str = "global delete-agent 1";
-    const char *response = "ok";
-
-    // Calling Wazuh DB
-    expect_any(__wrap_wdbc_query_ex, *sock);
-    expect_string(__wrap_wdbc_query_ex, query, query_str);
-    expect_value(__wrap_wdbc_query_ex, len, WDBOUTPUT_SIZE);
-    will_return(__wrap_wdbc_query_ex, response);
-    will_return(__wrap_wdbc_query_ex, OS_SUCCESS);
-
-    // Parsing Wazuh DB result
-    expect_any(__wrap_wdbc_parse_result, result);
-    will_return(__wrap_wdbc_parse_result, WDBC_OK);
-
-    root = __real_cJSON_CreateArray();
-    row = __real_cJSON_CreateObject();
-    str = __real_cJSON_CreateString("agent1");
-    __real_cJSON_AddItemToObject(row, "name", str);
-    __real_cJSON_AddItemToArray(root, row);
-
-    // Calling Wazuh DB in select-agent-name
-    will_return(__wrap_wdbc_query_parse_json, 0);
-    will_return(__wrap_wdbc_query_parse_json, root);
-
-    // Getting JSON data
-    will_return(__wrap_cJSON_GetObjectItem, str);
-
-    expect_function_call(__wrap_cJSON_Delete);
-
-    // Error on removing DB files
-    expect_string(__wrap_remove, filename, "var/db/agents/001-agent1.db");
-    will_return(__wrap_remove, OS_INVALID);
-
-    expect_string(__wrap__mdebug1, formatted_msg, "Unable to remove agent DB: 1 - agent1");
-
-    ret = wdb_remove_agent(id, NULL);
-
-    assert_int_equal(OS_SUCCESS, ret);
-
-    __real_cJSON_Delete(root);
-}
 
 void test_wdb_remove_agent_error_socket(void **state)
 {
@@ -2392,6 +2342,50 @@ void test_wdb_remove_agent_error_result(void **state)
     __real_cJSON_Delete(root);
 }
 
+void test_wdb_remove_agent_error_delete_belongs_and_name(void **state)
+{
+    int ret = 0;
+    int id = 1;
+
+    char *query_str = "global delete-agent 1";
+    const char *response = "ok";
+
+    // Calling Wazuh DB
+    expect_any(__wrap_wdbc_query_ex, *sock);
+    expect_string(__wrap_wdbc_query_ex, query, query_str);
+    expect_value(__wrap_wdbc_query_ex, len, WDBOUTPUT_SIZE);
+    will_return(__wrap_wdbc_query_ex, response);
+    will_return(__wrap_wdbc_query_ex, OS_SUCCESS);
+
+    // Parsing Wazuh DB result
+    expect_any(__wrap_wdbc_parse_result, result);
+    will_return(__wrap_wdbc_parse_result, WDBC_OK);
+
+    char *query_belong_str = "global delete-agent-belong 1";
+    response = "err";
+
+    // Calling Wazuh DB in delete-agent-belong
+    expect_any(__wrap_wdbc_query_ex, *sock);
+    expect_string(__wrap_wdbc_query_ex, query, query_belong_str);
+    expect_value(__wrap_wdbc_query_ex, len, WDBOUTPUT_SIZE);
+    will_return(__wrap_wdbc_query_ex, response);
+    will_return(__wrap_wdbc_query_ex, OS_INVALID);
+
+    // Handling result
+    expect_string(__wrap__mdebug1, formatted_msg, "Global DB Error in the response from socket");
+    expect_string(__wrap__mdebug2, formatted_msg, "Global DB SQL query: global delete-agent-belong 1");
+
+    // Calling Wazuh DB in select-agent-name
+    will_return(__wrap_wdbc_query_parse_json, 0);
+    will_return(__wrap_wdbc_query_parse_json, NULL);
+
+    expect_string(__wrap__merror, formatted_msg, "Error querying Hids DB to get the agent's 1 name.");
+
+    ret = wdb_remove_agent(id, NULL);
+
+    assert_int_equal(OS_INVALID, ret);
+}
+
 void test_wdb_remove_agent_success(void **state)
 {
     cJSON *root = NULL;
@@ -2406,6 +2400,20 @@ void test_wdb_remove_agent_success(void **state)
     // Calling Wazuh DB
     expect_any(__wrap_wdbc_query_ex, *sock);
     expect_string(__wrap_wdbc_query_ex, query, query_str);
+    expect_value(__wrap_wdbc_query_ex, len, WDBOUTPUT_SIZE);
+    will_return(__wrap_wdbc_query_ex, response);
+    will_return(__wrap_wdbc_query_ex, OS_SUCCESS);
+
+    // Parsing Wazuh DB result
+    expect_any(__wrap_wdbc_parse_result, result);
+    will_return(__wrap_wdbc_parse_result, WDBC_OK);
+
+    char *query_belongs_str = "global delete-agent-belong 1";
+    response = "ok";
+
+    // Calling Wazuh DB in delete-agent-belong
+    expect_any(__wrap_wdbc_query_ex, *sock);
+    expect_string(__wrap_wdbc_query_ex, query, query_belongs_str);
     expect_value(__wrap_wdbc_query_ex, len, WDBOUTPUT_SIZE);
     will_return(__wrap_wdbc_query_ex, response);
     will_return(__wrap_wdbc_query_ex, OS_SUCCESS);
@@ -2468,7 +2476,7 @@ void test_wdb_get_agent_keepalive_error_no_json_response(void **state) {
     will_return(__wrap_wdbc_query_parse_json, 0);
     will_return(__wrap_wdbc_query_parse_json, response);
 
-    expect_string(__wrap__merror, formatted_msg, "Error querying Wazuh DB to get the last agent keepalive.");
+    expect_string(__wrap__merror, formatted_msg, "Error querying Hids DB to get the last agent keepalive.");
 
     keepalive = wdb_get_agent_keepalive(name, ip, NULL);
 
@@ -2527,7 +2535,7 @@ void test_wdb_get_agent_group_error_no_json_response(void **state) {
     will_return(__wrap_wdbc_query_parse_json, 0);
     will_return(__wrap_wdbc_query_parse_json, NULL);
 
-    expect_string(__wrap__merror, formatted_msg, "Error querying Wazuh DB to get the agent's 1 group.");
+    expect_string(__wrap__merror, formatted_msg, "Error querying Hids DB to get the agent's 1 group.");
 
     name = wdb_get_agent_group(id, NULL);
 
@@ -2587,7 +2595,7 @@ void test_wdb_find_agent_error_json_input(void **state)
 
     will_return(__wrap_cJSON_CreateObject, NULL);
 
-    expect_string(__wrap__mdebug1, formatted_msg, "Error creating data JSON for Wazuh DB.");
+    expect_string(__wrap__mdebug1, formatted_msg, "Error creating data JSON for Hids DB.");
 
     ret = wdb_find_agent(name, ip, NULL);
 
@@ -2620,7 +2628,7 @@ void test_wdb_find_agent_error_json_output(void **state)
     will_return(__wrap_wdbc_query_parse_json, NULL);
 
     // Handling result
-    expect_string(__wrap__merror, formatted_msg, "Error querying Wazuh DB for agent ID.");
+    expect_string(__wrap__merror, formatted_msg, "Error querying Hids DB for agent ID.");
 
     ret = wdb_find_agent(name_str, ip_str, NULL);
 
@@ -2765,7 +2773,7 @@ void test_wdb_update_agent_group_error_json(void **state)
 
     will_return(__wrap_cJSON_CreateObject, NULL);
 
-    expect_string(__wrap__mdebug1, formatted_msg, "Error creating data JSON for Wazuh DB.");
+    expect_string(__wrap__mdebug1, formatted_msg, "Error creating data JSON for Hids DB.");
 
     ret = wdb_update_agent_group(id, test_group, NULL);
 
@@ -3003,7 +3011,7 @@ void test_wdb_update_agent_group_success(void **state)
     will_return(__wrap_wdbc_query_parse_json, 0);
     will_return(__wrap_wdbc_query_parse_json, NULL);
 
-    expect_string(__wrap__merror, formatted_msg, "Error querying Wazuh DB to get the agent group id.");
+    expect_string(__wrap__merror, formatted_msg, "Error querying Hids DB to get the agent group id.");
 
     //// wdb_insert_group success
     query_str = "global insert-agent-group test_group";
@@ -3080,7 +3088,7 @@ void test_wdb_find_group_error_no_json_response(void **state) {
     will_return(__wrap_wdbc_query_parse_json, 0);
     will_return(__wrap_wdbc_query_parse_json, NULL);
 
-    expect_string(__wrap__merror, formatted_msg, "Error querying Wazuh DB to get the agent group id.");
+    expect_string(__wrap__merror, formatted_msg, "Error querying Hids DB to get the agent group id.");
 
     id = wdb_find_group(name, NULL);
 
@@ -3221,7 +3229,7 @@ void test_wdb_update_agent_belongs_error_json(void **state)
 
     will_return(__wrap_cJSON_CreateObject, NULL);
 
-    expect_string(__wrap__mdebug1, formatted_msg, "Error creating data JSON for Wazuh DB.");
+    expect_string(__wrap__mdebug1, formatted_msg, "Error creating data JSON for Hids DB.");
 
     ret = wdb_update_agent_belongs(id_group, id_agent, NULL);
 
@@ -3437,7 +3445,7 @@ void test_wdb_update_agent_multi_group_error_update_belongs_single(void **state)
     will_return(__wrap_wdbc_query_parse_json, 0);
     will_return(__wrap_wdbc_query_parse_json, NULL);
 
-    expect_string(__wrap__merror, formatted_msg, "Error querying Wazuh DB to get the agent group id.");
+    expect_string(__wrap__merror, formatted_msg, "Error querying Hids DB to get the agent group id.");
 
     //// wdb_insert_group success
     query_str = "global insert-agent-group test_group";
@@ -3472,7 +3480,7 @@ void test_wdb_update_agent_multi_group_error_update_belongs_single(void **state)
     //// wdb_update_agent_belongs error
     will_return(__wrap_cJSON_CreateObject, NULL);
 
-    expect_string(__wrap__mdebug1, formatted_msg, "Error creating data JSON for Wazuh DB.");
+    expect_string(__wrap__mdebug1, formatted_msg, "Error creating data JSON for Hids DB.");
 
     ret = wdb_update_agent_multi_group(id, name, NULL);
 
@@ -3508,7 +3516,7 @@ void test_wdb_update_agent_multi_group_error_update_belongs_multi(void **state) 
     will_return(__wrap_wdbc_query_parse_json, 0);
     will_return(__wrap_wdbc_query_parse_json, NULL);
 
-    expect_string(__wrap__merror, formatted_msg, "Error querying Wazuh DB to get the agent group id.");
+    expect_string(__wrap__merror, formatted_msg, "Error querying Hids DB to get the agent group id.");
 
     //// wdb_insert_group success
     query_str = "global insert-agent-group test_group1";
@@ -3572,7 +3580,7 @@ void test_wdb_update_agent_multi_group_error_update_belongs_multi(void **state) 
     will_return(__wrap_wdbc_query_parse_json, 0);
     will_return(__wrap_wdbc_query_parse_json, NULL);
 
-    expect_string(__wrap__merror, formatted_msg, "Error querying Wazuh DB to get the agent group id.");
+    expect_string(__wrap__merror, formatted_msg, "Error querying Hids DB to get the agent group id.");
 
     //// wdb_insert_group success
     query_str = "global insert-agent-group test_group2";
@@ -3606,7 +3614,7 @@ void test_wdb_update_agent_multi_group_error_update_belongs_multi(void **state) 
     //// wdb_update_agent_belongs error
     will_return(__wrap_cJSON_CreateObject, NULL);
 
-    expect_string(__wrap__mdebug1, formatted_msg, "Error creating data JSON for Wazuh DB.");
+    expect_string(__wrap__mdebug1, formatted_msg, "Error creating data JSON for Hids DB.");
 
     ret = wdb_update_agent_multi_group(id, name, NULL);
 
@@ -3931,7 +3939,7 @@ void test_wdb_update_groups_error_json(void **state) {
     will_return(__wrap_wdbc_query_parse_json, 0);
     will_return(__wrap_wdbc_query_parse_json, NULL);
 
-    expect_string(__wrap__merror, formatted_msg, "Error querying Wazuh DB to update groups.");
+    expect_string(__wrap__merror, formatted_msg, "Error querying Hids DB to update groups.");
 
     ret = wdb_update_groups(SHAREDCFG_DIR, NULL);
 
@@ -4126,7 +4134,7 @@ void test_wdb_update_groups_success(void **state) {
     will_return(__wrap_wdbc_query_parse_json, 0);
     will_return(__wrap_wdbc_query_parse_json, NULL);
 
-    expect_string(__wrap__merror, formatted_msg, "Error querying Wazuh DB to get the agent group id.");
+    expect_string(__wrap__merror, formatted_msg, "Error querying Hids DB to get the agent group id.");
 
     //// Call to wdb_insert_group
     const char *query_str = "global insert-agent-group test_group";
@@ -4222,7 +4230,7 @@ void test_wdb_agent_belongs_first_time_success(void **state) {
     will_return(__wrap_wdbc_query_parse_json, 0);
     will_return(__wrap_wdbc_query_parse_json, NULL);
 
-    expect_string(__wrap__merror, formatted_msg, "Error querying Wazuh DB to get the agent group id.");
+    expect_string(__wrap__merror, formatted_msg, "Error querying Hids DB to get the agent group id.");
 
     //// wdb_insert_group success
     query_str = "global insert-agent-group default";
@@ -4256,7 +4264,7 @@ void test_wdb_agent_belongs_first_time_success(void **state) {
     //// wdb_update_agent_belongs error
     will_return(__wrap_cJSON_CreateObject, NULL);
 
-    expect_string(__wrap__mdebug1, formatted_msg, "Error creating data JSON for Wazuh DB.");
+    expect_string(__wrap__mdebug1, formatted_msg, "Error creating data JSON for Hids DB.");
 
     ret = wdb_agent_belongs_first_time(NULL);
 
@@ -4831,10 +4839,10 @@ int main()
         cmocka_unit_test_setup_teardown(test_wdb_remove_agent_db_error_removing_db_shm_wal, setup_wdb_global_helpers, teardown_wdb_global_helpers),
         cmocka_unit_test_setup_teardown(test_wdb_remove_agent_db_success, setup_wdb_global_helpers, teardown_wdb_global_helpers),
         /* Tests wdb_remove_agent */
-        cmocka_unit_test_setup_teardown(test_wdb_remove_agent_remove_db_error, setup_wdb_global_helpers, teardown_wdb_global_helpers),
         cmocka_unit_test_setup_teardown(test_wdb_remove_agent_error_socket, setup_wdb_global_helpers, teardown_wdb_global_helpers),
         cmocka_unit_test_setup_teardown(test_wdb_remove_agent_error_sql_execution, setup_wdb_global_helpers, teardown_wdb_global_helpers),
         cmocka_unit_test_setup_teardown(test_wdb_remove_agent_error_result, setup_wdb_global_helpers, teardown_wdb_global_helpers),
+        cmocka_unit_test_setup_teardown(test_wdb_remove_agent_error_delete_belongs_and_name, setup_wdb_global_helpers, teardown_wdb_global_helpers),
         cmocka_unit_test_setup_teardown(test_wdb_remove_agent_success, setup_wdb_global_helpers, teardown_wdb_global_helpers),
         /* Tests wdb_get_agent_keepalive */
         cmocka_unit_test_setup_teardown(test_wdb_get_agent_keepalive_error_no_name_nor_ip, setup_wdb_global_helpers, teardown_wdb_global_helpers),
